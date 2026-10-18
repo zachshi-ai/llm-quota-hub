@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.minimaxi.com https://api.minimax.io https://api.moonshot.cn https://api.deepseek.com https://open.bigmodel.cn; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="theme-color" content="#F7F8FA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -248,6 +249,9 @@
    ========================================================= */
 const LS_VAULT = 'lqh.vault.v1';
 const LS_META  = 'lqh.meta.v1';
+const LS_GUARD = 'lqh.guard.v1';
+const PIN_MAX_TRY = 5;
+const PIN_COOLDOWN_MS = 30 * 1000;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 
 let S = { providers: [], unlocked: false, key: null, salt: null, idleAt: Date.now(), timer: null };
@@ -359,16 +363,30 @@ function renderGate(mode){
       S.unlocked = true;
       await persist();
       render();
+      refresh();
       toast('已创建，先给各家填 Key');
     } else {
+      const guard = JSON.parse(localStorage.getItem(LS_GUARD) || '{"n":0,"until":0}');
+      if (guard.until && Date.now() < guard.until) {
+        return toast('尝试过多，' + Math.ceil((guard.until - Date.now()) / 1000) + ' 秒后再试');
+      }
       const box = JSON.parse(localStorage.getItem(LS_VAULT) || '{}');
       try {
         S.salt = unb64(box.salt);
         S.key = await deriveKey(pin, S.salt);
         S.providers = (await decryptVault(box, S.key)).providers;
+        localStorage.removeItem(LS_GUARD);
         S.unlocked = true;
         render();
-      } catch { toast('PIN 不正确'); }
+        refresh();
+      } catch {
+        guard.n = (guard.n || 0) + 1;
+        if (guard.n >= PIN_MAX_TRY) { guard.until = Date.now() + PIN_COOLDOWN_MS; guard.n = 0; }
+        localStorage.setItem(LS_GUARD, JSON.stringify(guard));
+        toast(guard.until && Date.now() < guard.until
+          ? 'PIN 错误过多，已锁定 30 秒'
+          : 'PIN 不正确（还可试 ' + (PIN_MAX_TRY - guard.n) + ' 次）');
+      }
     }
   };
   const rs = $('#resetAll');
@@ -382,10 +400,9 @@ function renderGate(mode){
 }
 
 function lock(){
-  S.unlocked = false; S.key = null; S.providers = [];
-  const meta = JSON.parse(localStorage.getItem(LS_META) || '{}');
-  if (!meta.providers) return location.reload();
-  renderLocked(meta.providers);
+  S.unlocked = false; S.key = null; S.providers = []; ST = []; viewTab = 'all';
+  if (!localStorage.getItem(LS_VAULT)) return location.reload();
+  renderGate('unlock');
 }
 function renderLocked(list){
   $('#app').innerHTML = `
