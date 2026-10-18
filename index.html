@@ -293,6 +293,9 @@ const ST_TXT = { ok:'正常', expiring:'即将到期', error:'异常', unauthent
 
 /* 平台目录：adapter=manual 表示接口未开放，只能手动记额度；restricted=受限制 */
 const PRESETS = [
+  { key:'stepx', name:'STEPX Neo', short:'S', color:'#4F8DFF', type:'usage', adapter:'runtime',
+    note:'本机助手：当前对话模型 + Token Plan 口径，云端自动同步',
+    links:[{label:'Token 用量',url:'https://task.stepos.com/mytask'},{label:'StepFun 控制台',url:'https://platform.stepfun.com'}] },
   { key:'minimax', name:'MiniMax', short:'M', color:'#3370FF', type:'token_plan', adapter:'minimax',
     note:'Token Plan 周期额度，云端自动同步',
     keyUrl:'https://platform.minimaxi.com/user-center/basic-information/interface-key',
@@ -336,6 +339,9 @@ const PRESETS = [
 const PRESET_OF = key => PRESETS.find(x => x.key === key);
 
 const DEFAULT_PROVIDERS = [
+  { id:'stepx', name:'STEPX Neo', type:'usage', adapter:'runtime', authKind:'none', apiKey:'',
+    note:'本机助手：当前对话模型 + Token Plan 口径',
+    links:[{label:'Token 用量',url:'https://task.stepos.com/mytask'},{label:'StepFun 控制台',url:'https://platform.stepfun.com'}] },
   { id:'minimax', name:'MiniMax', type:'token_plan', adapter:'minimax', authKind:'api_key', apiKey:'',
     note:'Token Plan 周期额度', base:'https://api.minimaxi.com',
     links:[{label:'控制台',url:'https://platform.minimaxi.com/subscribe/token-plan'}] },
@@ -451,7 +457,10 @@ function renderGate(mode){
         S.salt = unb64(box.salt);
         S.key = await deriveKey(pin, S.salt);
         const data = await decryptVault(box, S.key);
-        S.providers = data.providers || [];
+        const have = new Set((data.providers || []).map(x => x.id));
+        const missing = DEFAULT_PROVIDERS.filter(d => !have.has(d.id)).map(d => ({ ...d }));
+        S.providers = (data.providers || []).concat(missing);
+        if (missing.length) { data.providers = S.providers; await persist(); }
         S.hiddenModels = data.hiddenModels || [];
         localStorage.removeItem(LS_GUARD);
         S.unlocked = true;
@@ -551,6 +560,32 @@ async function cloudSnapshot(){
   } catch { return null; }
 }
 
+/** 读取云端同步下来的「本机助手运行时」快照（同源静态 JSON，不含任何密钥） */
+async function runtimeSnapshot(){
+  try {
+    const r = await fetch('data/runtime.json', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.model ? d : null;
+  } catch { return null; }
+}
+
+function runtimeMetrics(rt){
+  const model = rt.model || '未知';
+  const ctx = rt.context_window ? `${(Number(rt.context_window)/1000000).toFixed(1)}M 上下文` : '';
+  const metrics = [
+    { label:'当前对话模型', pct:null,
+      text:[model, ctx, rt.fallback ? `兜底 ${rt.fallback}` : ''].filter(Boolean).join(' · ') },
+    { label:'套餐额度', pct:null,
+      text: rt.plan && rt.plan.monthly_tokens
+        ? `${rt.plan.name || 'STEPX Token Plan'} · 每月 ${(rt.plan.monthly_tokens/100000000).toFixed(0)} 亿 tokens`
+        : 'STEPX Token Plan · 每月 100 亿 tokens' },
+    { label:'本期已用', pct:null,
+      text: (rt.usage && rt.usage.available) ? String(rt.usage.text || '') : '平台未开放接口，需登录用量页查看' }
+  ];
+  return { metrics, note: rt.loaded_at ? `模型配置生效于 ${rt.loaded_at}` : '运行时状态同步自云端' };
+}
+
 function manualStatus(p, out){
   const m = p.manual || {};
   out.adapter = 'manual';
@@ -575,6 +610,19 @@ async function statusOf(p){
   const out = { id:p.id, name:p.name, type:p.type, adapter, authKind:p.authKind, links:p.links||[],
                 note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, hidden: !!p.hidden,
                 restricted: !!p.restricted, metrics:[] };
+
+  if (adapter === 'runtime') {
+    const rt = await runtimeSnapshot();
+    if (!rt) return { ...out, status:'error', note:'运行时快照未同步（data/runtime.json 缺失）' };
+    const r = runtimeMetrics(rt);
+    out.metrics = r.metrics;
+    out.status = 'ok';
+    out.note = r.note;
+    out.cloudSynced = true;
+    out.syncedAt = rt.updated_at;
+    out.updatedAt = Date.now();
+    return out;
+  }
 
   if (adapter === 'manual') return manualStatus(p, out);
 
