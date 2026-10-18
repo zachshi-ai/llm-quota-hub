@@ -1,0 +1,18 @@
+{
+  "updated_at": "2026-10-18T13:27:54.012Z",
+  "agent": "main",
+  "provider": "stepos",
+  "model": "step-5-preview",
+  "context_window": 1000000,
+  "fallback": "stepos-model-auto",
+  "loaded_at": "2026-10-18 18:44:37",
+  "plan": {
+    "name": "STEPX Token Plan",
+    "monthly_tokens": 10000000000,
+    "period": "month"
+  },
+  "usage": {
+    "available": false,
+    "reason": "平台未开放接口，需登录 task.stepos.com/mytask 查看"
+  }
+}
