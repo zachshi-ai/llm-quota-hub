@@ -88,25 +88,15 @@
   .badge.usage{color:#9aa7b8}
   .chead .spacer{flex:1}
 
-  /* ---------- 环形 ---------- */
-  .donut-wrap{position:relative;width:58px;height:58px;flex:none}
-  .donut{width:58px;height:58px;transform:rotate(-90deg)}
-  .donut .track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:4}
-  .donut .arc{fill:none;stroke:url(#gGreen);stroke-width:4;stroke-linecap:round;
-    transition:stroke-dashoffset .8s cubic-bezier(.25,.8,.3,1)}
-  .donut-wrap .dv{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
-  .donut-wrap .dv b{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-  .donut-wrap .dv span{font-size:8.5px;color:var(--dim);letter-spacing:.08em}
-
   /* ---------- hero 数字 ---------- */
   .heroes{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
   .tile{padding:12px 12px 11px;border-radius:15px;background:rgba(255,255,255,.032);
     border:1px solid var(--line-soft)}
-  .tile .k{font-size:10.5px;color:var(--dim);letter-spacing:.1em}
-  .tile .v{font-size:27px;font-weight:720;letter-spacing:-.03em;margin-top:3px;
+  .tile .k{font-size:10px;color:#7b8593;letter-spacing:.13em}
+  .tile .v{font-size:34px;font-weight:730;letter-spacing:-.045em;margin-top:2px;
     font-variant-numeric:tabular-nums;line-height:1.1}
   .tile .v small{font-size:12px;font-weight:600;color:var(--sub);margin-left:2px;letter-spacing:0}
-  .tile .hint{font-size:10px;color:var(--dim);margin-top:5px}
+  .tile .hint{font-size:10px;color:#78838f;margin-top:6px;letter-spacing:.01em}
 
   .sec-title{display:flex;align-items:center;gap:8px;margin:16px 0 2px;
     font-size:10.5px;color:var(--dim);letter-spacing:.16em}
@@ -121,26 +111,29 @@
   .mrow{margin-top:10px}
   .mlab{display:flex;align-items:baseline;justify-content:space-between;font-size:11.5px;color:var(--sub)}
   .mlab b{color:var(--txt);font-weight:660;font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .bar{height:5px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:6px}
+  .bar{height:4px;border-radius:99px;background:rgba(255,255,255,.065);overflow:hidden;margin-top:7px}
   .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2f7df6,#48d4ff);
     transition:width .7s cubic-bezier(.25,.8,.3,1)}
   .bar i.ok{background:linear-gradient(90deg,#2f9d6b,#4ee2a5)}
   .bar i.warn{background:linear-gradient(90deg,#d99a2b,#fcd34d)}
   .bar i.low{background:linear-gradient(90deg,#dc4b4b,#fb8f8f)}
-  .mhint{font-size:10.5px;color:var(--dim);margin-top:5px}
+  .mhint{font-size:10.5px;color:#78838f;margin-top:6px;letter-spacing:.01em}
 
   /* ---------- 余额 / 底部 ---------- */
-  .money{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:12px;
-    padding-top:12px;border-top:1px solid var(--line-soft)}
-  .money .amt{font-size:22px;font-weight:720;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .money{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:16px;
+    padding-top:14px;border-top:1px solid var(--line-soft)}
+  .money .amt{font-size:26px;font-weight:720;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
   .money .amt small{font-size:11px;color:var(--dim);font-weight:500;margin-left:4px;letter-spacing:0}
   .money .split{font-size:10.5px;color:var(--dim);text-align:right;line-height:1.7}
 
-  .chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
-  .chip{font-size:10.5px;color:var(--sub);background:rgba(255,255,255,.035);
-    border:1px solid var(--line-soft);border-radius:8px;padding:4px 8px}
-  .chip.ok{color:#8ee9c4}
-  .chip.warn{color:#fcd34d}
+  .chiprow{display:flex;flex-wrap:wrap;gap:0;margin-top:13px;font-size:10.5px;
+    color:#78838f;line-height:1.75;letter-spacing:.01em}
+  .chip{color:#78838f}
+  .chip + .chip::before{content:"·";margin:0 7px;color:#39414d}
+  .chip.ok{color:#7fdcb0}
+  .chip.warn{color:#e3b45c}
+  .state{font-size:10px;color:#7b8593;letter-spacing:.12em;margin-left:auto}
+  .state.warn{color:#e3b45c}
 
   .footrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
   .footrow a{color:var(--dim);font-size:11.5px;text-decoration:none}
@@ -582,10 +575,10 @@ function render(){
     const heroes = groups.length ? `<div class="heroes">
       <div class="tile"><div class="k">当期剩余</div>
         <div class="v">${minOf(intervalPcts)}<small>%</small></div>
-        <div class="hint">取各模型最低 · 5 小时窗</div></div>
+        <div class="hint">各模型最低 · 5 小时窗</div></div>
       <div class="tile"><div class="k">本周剩余</div>
         <div class="v">${minOf(weeklyPcts)}<small>%</small></div>
-        <div class="hint">基准总额 ${Math.max(...groups.map(g => g.weekly.boost || 100))}%</div></div>
+        <div class="hint">基准 ${Math.max(...groups.map(g => g.weekly.boost || 100))}% · 各模型最低</div></div>
     </div>` : '';
 
     const money = p.balance ? `<div class="money">
@@ -607,7 +600,7 @@ function render(){
         <span class="dot"></span><span class="pname">${esc(p.name)}</span>
         <span class="badge ${esc(type)}">${TYPE_TXT[type] || type}</span>
         <span class="spacer"></span>
-        ${groups.length ? donutSvg(minOf(weeklyPcts)) : ''}
+        <span class="state ${st === 'ok' ? '' : 'warn'}">${ST_TXT[st] || st}</span>
       </div>
       ${heroes}
       ${groups.length ? `<div class="sec-title">模型明细</div>${groupsHtml(groups)}` : ''}
