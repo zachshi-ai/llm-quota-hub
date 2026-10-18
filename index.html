@@ -152,6 +152,36 @@
   .empty{padding:40px 16px;text-align:center;color:var(--dim);font-size:13px;
     background:#fff;border:1px dashed var(--line-strong);border-radius:8px}
 
+  /* ---------- 飞书式 Tabs ---------- */
+  .tabs{display:flex;gap:22px;padding:2px 2px 0;margin:0 0 12px;border-bottom:1px solid var(--line)}
+  .tabs .tab{position:relative;border:0;background:transparent;padding:8px 0 11px;font:inherit;
+    font-size:14px;font-weight:500;color:var(--sub)}
+  .tabs .tab.on{color:var(--primary);font-weight:600}
+  .tabs .tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+    border-radius:2px;background:var(--primary)}
+  .tabs .count{font-size:11px;color:var(--dim);margin-left:4px}
+
+  /* ---------- 卡片更多 ---------- */
+  .morebtn{width:26px;height:26px;border:0;background:transparent;color:var(--dim);
+    font-size:17px;line-height:1;border-radius:6px;padding:0 0 6px;margin-left:2px}
+  .morebtn:active{background:var(--fill)}
+
+  /* ---------- 飞书描述列表 ---------- */
+  .kv{margin-top:14px;border-top:1px solid var(--line)}
+  .kv .row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--sub)}
+  .kv .row:last-child{border-bottom:0;padding-bottom:2px}
+  .kv .row b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  .kv .row b.big{font-size:20px;letter-spacing:-.02em}
+  .menu-item{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:13px 2px;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--txt);
+    text-decoration:none;background:transparent;border-left:0;border-right:0;border-top:0;
+    width:100%;text-align:left;font-family:inherit}
+  .menu-item:active{background:var(--fill)}
+  .menu-item:last-child{border-bottom:0}
+  .menu-item span{color:var(--dim);font-size:12.5px}
+  .menu-item.danger{color:var(--red)}
+
   /* ---------- 弹层 ---------- */
   .sheet-bg{position:fixed;inset:0;z-index:40;display:none;align-items:flex-end;justify-content:center;
     background:rgba(29,33,41,.45)}
@@ -555,10 +585,21 @@ function metricsHtml(metrics){
   }).join('');
 }
 
+let viewTab = 'all';
+
 function render(){
   if (!S.unlocked) return;
 
-  const cards = ST.length ? ST.map(p => {
+  const tabList = ST.filter(p => viewTab === 'all' ? true
+    : viewTab === 'plan' ? (p.type === 'token_plan' || p.type === 'coding_plan')
+    : (p.type === 'balance' || p.type === 'usage'));
+  const counts = {
+    all: ST.length,
+    plan: ST.filter(p => p.type === 'token_plan' || p.type === 'coding_plan').length,
+    balance: ST.filter(p => p.type === 'balance' || p.type === 'usage').length
+  };
+
+  const cards = tabList.length ? tabList.map(p => {
     const type = p.type || 'usage';
     const st = p.status || 'error';
     const groups = p.groups || [];
@@ -579,11 +620,10 @@ function render(){
         <div class="hint">基准 ${Math.max(...groups.map(g => g.weekly.boost || 100))}% · 各模型最低</div></div>
     </div>` : '';
 
-    const money = p.balance ? `<div class="money">
-      <div class="amt">¥${Number(p.balance.amount).toFixed(2)}<small>${esc(p.balance.currency || 'CNY')} 可用</small></div>
-      ${(p.balance.cash != null || p.balance.voucher != null) ? `<div class="split">
-        现金 ¥${Number(p.balance.cash || 0).toFixed(2)}<br>代金券 ¥${Number(p.balance.voucher || 0).toFixed(2)}
-      </div>` : ''}
+    const money = p.balance ? `<div class="kv">
+      <div class="row"><span>可用余额</span><b class="big">¥${Number(p.balance.amount).toFixed(2)} ${esc(p.balance.currency || 'CNY')}</b></div>
+      ${p.balance.cash != null ? `<div class="row"><span>现金余额</span><b>¥${Number(p.balance.cash).toFixed(2)}</b></div>` : ''}
+      ${p.balance.voucher != null ? `<div class="row"><span>代金券</span><b>¥${Number(p.balance.voucher).toFixed(2)}</b></div>` : ''}
     </div>` : '';
 
     const chips = `<div class="chiprow">
@@ -599,6 +639,7 @@ function render(){
         <span class="badge ${esc(type)}">${TYPE_TXT[type] || type}</span>
         <span class="spacer"></span>
         <span class="state ${st === 'ok' ? '' : 'warn'}">${ST_TXT[st] || st}</span>
+        <button class="morebtn" onclick="providerMenu('${esc(p.id)}')" aria-label="更多">⋯</button>
       </div>
       ${heroes}
       ${groups.length ? `<div class="sec-title">模型明细</div>${groupsHtml(groups)}` : ''}
@@ -608,9 +649,7 @@ function render(){
       ${p.note ? `<div class="note">${esc(p.note)}</div>` : ''}
       <div class="footrow">
         ${(p.links || []).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noreferrer">${esc(l.label)} ›</a>`).join('')}
-        ${(!p.keySaved && KEY_URL[p.id]) ? `<a href="${KEY_URL[p.id]}" target="_blank" rel="noreferrer" style="color:#7fb6ff">建 Key ›</a>` : ''}
-        <span class="spacer"></span>
-        <button class="tiny" onclick="editKey('${esc(p.id)}')">${p.keySaved ? '替换 Key' : '配置 Key'}</button>
+        ${(!p.keySaved && KEY_URL[p.id]) ? `<a href="${KEY_URL[p.id]}" target="_blank" rel="noreferrer">创建 Key ›</a>` : ''}
       </div>
     </div>`;
   }).join('') : '<div class="empty">还没有平台，点「接入」添加一个。</div>';
@@ -629,6 +668,11 @@ function render(){
           <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></svg>
       </button>
     </div>
+    <div class="tabs">
+      <button class="tab ${viewTab === 'all' ? 'on' : ''}" data-tab="all">全部<span class="count">${counts.all}</span></button>
+      <button class="tab ${viewTab === 'plan' ? 'on' : ''}" data-tab="plan">套餐<span class="count">${counts.plan}</span></button>
+      <button class="tab ${viewTab === 'balance' ? 'on' : ''}" data-tab="balance">余额<span class="count">${counts.balance}</span></button>
+    </div>
     <div class="fade">${cards}</div>
     <div class="dock"><div class="inner">
       <button id="btnRefresh">
@@ -639,6 +683,9 @@ function render(){
         <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></svg>锁定</button>
     </div></div>`;
 
+  document.querySelectorAll('.tabs .tab').forEach(b => {
+    b.onclick = () => { viewTab = b.dataset.tab; render(); };
+  });
   $('#btnLock').onclick = lock;
   $('#btnLock2').onclick = lock;
   $('#btnAdd').onclick = addSheet;
@@ -651,6 +698,32 @@ async function refresh(manual){
   ST = await Promise.all(S.providers.map(statusOf));
   render();
   if (manual) toast('已刷新');
+}
+
+/* ---------------- 卡片更多菜单 ---------------- */
+function providerMenu(id){
+  const p = S.providers.find(x => x.id === id);
+  if (!p) return;
+  const link = (p.links || [])[0];
+  openSheet(`<h3>${esc(p.name)}</h3>
+    <div class="menu-item" onclick="closeSheet();editKey('${id}')">
+      配置 API Key<span>${p.keySaved ? '已保存 · 指纹 ' + esc(p.keyFp || '') : '未配置'}</span></div>
+    ${link ? `<a class="menu-item" href="${esc(link.url)}" target="_blank" rel="noreferrer">
+      打开${esc(link.label)}<span>浏览器</span></a>` : ''}
+    <div class="menu-item" onclick="copyFp('${id}')">
+      复制密钥指纹<span>${esc(p.keyFp || '—')}</span></div>
+    ${p.apiKey ? `<div class="menu-item danger" onclick="closeSheet();dropKey('${id}')">
+      解绑并删除密钥<span>不可恢复</span></div>` : ''}
+    <div class="btnrow"><button onclick="closeSheet()">关闭</button></div>`);
+}
+
+function copyFp(id){
+  const p = S.providers.find(x => x.id === id);
+  const txt = p && p.keyFp ? p.keyFp : '';
+  closeSheet();
+  if (!txt) return toast('还没有密钥指纹');
+  try { navigator.clipboard.writeText(txt); toast('已复制指纹 ' + txt); }
+  catch { toast('指纹 ' + txt); }
 }
 
 /* ---------------- 配置 Key ---------------- */
