@@ -3,12 +3,17 @@
 
 ## Android APK
 
-当前版本 **v1.7.0**
+当前版本 **v1.8.0**
 
-- [下载 quota-hub-v1.7.0.apk](https://github.com/zachshi-ai/llm-quota-hub/releases/download/v1.7.0/quota-hub-v1.7.0.apk)
-- 备用直链：[raw 地址](https://raw.githubusercontent.com/zachshi-ai/llm-quota-hub/main/apk/quota-hub-v1.7.0.apk)
+- [下载 quota-hub-v1.8.0.apk](https://github.com/zachshi-ai/llm-quota-hub/releases/download/v1.8.0/quota-hub-v1.8.0.apk)
+- 备用直链：[raw 地址](https://raw.githubusercontent.com/zachshi-ai/llm-quota-hub/main/apk/quota-hub-v1.8.0.apk)
 
 安装：手机浏览器打开链接下载，点开安装包并允许「安装未知应用」。包名 `ai.zachshi.quotahub`，minSdk 24 / targetSdk 34，仅申请联网与网络状态两项权限。
+
+### 自动巡查 / 静态看板（v1.8.0）
+
+- 自动巡查开：后台按间隔（15 分钟 – 12 小时，默认 30 分钟）拉最新数据并缓存，提醒按最新额度判定，断网或秒开用缓存兜底
+- 自动巡查关：静态看板，只在打开应用时拉一次，无后台网络请求
 
 ### 提醒（v1.7.0）
 
