@@ -48,6 +48,12 @@
   .badge.usage{color:#9aa7b8;border-color:#2a313c;background:#171b22}
   .big{font-size:31px;font-weight:700;letter-spacing:-.6px;margin:8px 0 2px}
   .big small{font-size:13px;color:var(--sub);font-weight:500;margin-left:4px}
+  .overall{margin-top:12px;padding:11px 12px;border:1px solid #1e2735;border-radius:12px;
+    background:linear-gradient(180deg,#101722,#0e131b)}
+  .overall .ovtop{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--sub)}
+  .overall .ovtop b{font-size:19px;color:var(--txt);font-weight:700;letter-spacing:-.3px}
+  .bar.big{height:9px;margin-top:7px}
+  .overall .meta{margin-top:6px}
   .metric{margin-top:11px}
   .metric .top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--sub);margin-bottom:5px}
   .metric .top b{color:var(--txt);font-weight:640}
@@ -122,6 +128,13 @@ const $ = s => document.querySelector(s);
 const toastEl = $('#toast');
 
 const TYPE_TXT = { token_plan:'Token Plan', coding_plan:'Coding Plan', balance:'余额', usage:'按量' };
+const MODEL_TXT = { general:'通用（文本/图像）', video:'视频生成', audio:'语音', image:'图像', music:'音乐' };
+const KEY_URL = {
+  minimax:'https://platform.minimaxi.com/user-center/basic-information/interface-key',
+  kimi:'https://platform.moonshot.cn/console/api-keys',
+  deepseek:'https://platform.deepseek.com/api_keys',
+  glm:'https://bigmodel.cn/usercenter/proj-mgmt/apikeys'
+};
 const ST_TXT = { ok:'正常', expiring:'即将过期', error:'异常', unauthenticated:'未配置', disabled:'已停用' };
 
 const DEFAULT_PROVIDERS = [
@@ -267,7 +280,8 @@ async function jget(url, key, opts = {}){
 async function statusOf(p){
   const out = { id:p.id, name:p.name, type:p.type, authKind:p.authKind, links:p.links||[],
                 note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, metrics:[] };
-  if (!p.apiKey) return { ...out, status:'unauthenticated', note:'还没有填 Key，点「配置」' };
+  if (!p.apiKey) return { ...out, status:'unauthenticated',
+    note:'手机上还没有凭证。点「配置 Key」填入平台 API Key，保存后即可看到整体用量与进度。' };
 
   try {
     if (p.id === 'minimax'){
@@ -277,7 +291,7 @@ async function statusOf(p){
         const total = Number(m.current_interval_total_count || 0);
         const used = Number(m.current_interval_usage_count || 0);
         const left = Number(m.current_interval_remaining_percent ?? 100);
-        return { label:m.model_name, percentLeft:left,
+        return { label: MODEL_TXT[m.model_name] || m.model_name, percentLeft:left,
           text: total > 0 ? `当期 ${used}/${total} 次 · 本周 ${m.current_weekly_usage_count}/${m.current_weekly_total_count} 次`
                           : `当期剩余 ${left}% · 本周剩余 ${m.current_weekly_remaining_percent}%`,
           resetAt: m.end_time };
@@ -333,10 +347,25 @@ function render(){
       </div>`;
     }).join('');
     const bal = p.balance ? `<div class="big">¥${Number(p.balance.amount).toFixed(2)}<small>${esc(p.balance.currency||'CNY')} 可用</small></div>` : '';
+
+    // 套餐整体用量：对所有带百分比的指标取平均，并找出最近的重置时间
+    const pcts = (p.metrics||[]).map(m => m.percentLeft).filter(v => v != null);
+    let overall = '';
+    if (pcts.length) {
+      const avg = Math.round(pcts.reduce((a,b)=>a+b,0) / pcts.length);
+      const resets = (p.metrics||[]).map(m=>m.resetAt).filter(Boolean).sort();
+      overall = `<div class="overall">
+        <div class="ovtop"><span>套餐整体剩余</span><b>${avg}%</b></div>
+        <div class="bar big"><i class="${barCls(avg)}" style="width:${avg}%"></i></div>
+        <div class="meta"><span>${pcts.length} 项额度综合</span>
+          ${resets.length?`<span>· 最近重置 ${fmtTime(resets[0])}</span>`:''}</div>
+      </div>`;
+    }
+
     return `<div class="card s-${esc(st)}">
       <div class="row"><div class="name"><span class="dot"></span>${esc(p.name)}</div>
         <span class="badge ${esc(type)}">${TYPE_TXT[type]||type}</span></div>
-      ${bal}${metrics}
+      ${bal}${overall}${metrics}
       <div class="note">${esc(p.note || ST_TXT[st] || '')}</div>
       <div class="meta"><span>${ST_TXT[st]||st}</span>
         ${p.updatedAt?`<span>· ${fmtTime(p.updatedAt)} 更新</span>`:''}</div>
@@ -345,6 +374,7 @@ function render(){
         ${p.keyFp?`<code>指纹 ${esc(p.keyFp)}</code>`:''}</div>` : ''}
       <div class="foot">
         ${(p.links||[]).map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noreferrer">${esc(l.label)}</a>`).join('')}
+        ${(!p.keySaved && KEY_URL[p.id]) ? `<a href="${KEY_URL[p.id]}" target="_blank" rel="noreferrer" style="color:#8fb6ff;border-color:#2a4570">去创建 Key</a>` : ''}
         <span class="sp"></span>
         ${p.keySaved?`<button class="tiny" onclick="editKey('${esc(p.id)}')">替换</button>`:''}
         <button class="tiny" onclick="editKey('${esc(p.id)}')">${p.keySaved?'配置':'配置 Key'}</button>
