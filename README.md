@@ -3,12 +3,19 @@
 
 ## Android APK
 
-当前版本 **v1.6.1**
+当前版本 **v1.7.0**
 
-- [下载 quota-hub-v1.6.1.apk](https://github.com/zachshi-ai/llm-quota-hub/releases/download/v1.6.1/quota-hub-v1.6.1.apk)
-- 备用直链：[raw 地址](https://raw.githubusercontent.com/zachshi-ai/llm-quota-hub/main/apk/quota-hub-v1.6.1.apk)
+- [下载 quota-hub-v1.7.0.apk](https://github.com/zachshi-ai/llm-quota-hub/releases/download/v1.7.0/quota-hub-v1.7.0.apk)
+- 备用直链：[raw 地址](https://raw.githubusercontent.com/zachshi-ai/llm-quota-hub/main/apk/quota-hub-v1.7.0.apk)
 
 安装：手机浏览器打开链接下载，点开安装包并允许「安装未知应用」。包名 `ai.zachshi.quotahub`，minSdk 24 / targetSdk 34，仅申请联网与网络状态两项权限。
+
+### 提醒（v1.7.0）
+
+- 重置前提醒：5 小时窗口与每周窗口重置前通知，提前量自定义（1 分钟 – 168 小时）
+- 额度快用完提醒：剩余百分比低于自定义阈值（1%–50%）时通知
+- 两个开关独立；后台每 15 分钟检查一次并拉最新快照，同一窗口只提醒一次
+- 首次使用需在设置页申请系统通知权限，可先发一条测试通知确认
 
 ### 数据来源与新鲜度
 
