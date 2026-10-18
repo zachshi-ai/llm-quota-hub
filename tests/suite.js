@@ -29,11 +29,11 @@ T('T2', '技术', '包名 / 版本 / SDK 范围正确', () => {
   const out = sh(`${BT}/aapt2 dump badging ${APK}`);
   const pick = re => (out.match(re) || [])[1];
   expect(pick(/package: name='([^']+)'/) === 'ai.zachshi.quotahub', '包名不符');
-  expect(pick(/versionName='([^']+)'/) === '1.4.2', 'versionName 不符');
-  expect(pick(/versionCode='(\d+)'/) === '7', 'versionCode 不符');
+  expect(pick(/versionName='([^']+)'/) === '1.6.0', 'versionName 不符');
+  expect(pick(/versionCode='(\d+)'/) === '9', 'versionCode 不符');
   expect(pick(/sdkVersion:'(\d+)'/) === '24', 'minSdk 不符');
   expect(pick(/targetSdkVersion:'(\d+)'/) === '34', 'targetSdk 不符');
-  return 'ai.zachshi.quotahub 1.4.2(7) / 24–34';
+  return 'ai.zachshi.quotahub 1.6.0(9) / 24–34';
 });
 T('T3', '技术', '权限最小化（仅联网 + 网络状态）', () => {
   const out = sh(`${BT}/aapt2 dump badging ${APK}`);
@@ -174,14 +174,14 @@ T('F6', '功能', '分段 Tabs 计数与筛选正确', async () => {
   const { ctx, page } = await newPage();
   await unlock(page);
   const tabs = await page.evaluate(() => [...document.querySelectorAll('.tabs .tab')].map(t => t.textContent.replace(/\s+/g, '')));
-  expect(JSON.stringify(tabs) === JSON.stringify(['全部4', '套餐2', '余额2']), '计数异常：' + tabs);
+  expect(JSON.stringify(tabs) === JSON.stringify(['全部7', '套餐2', '余额5']), '计数异常：' + tabs);
   await page.evaluate(() => { viewTab = 'balance'; render(); });
   const n1 = await page.evaluate(() => document.querySelectorAll('.card').length);
   await page.evaluate(() => { viewTab = 'plan'; render(); });
   const n2 = await page.evaluate(() => document.querySelectorAll('.card').length);
-  expect(n1 === 2 && n2 === 2, `筛选后卡片数 balance=${n1} plan=${n2}`);
+  expect(n1 === 5 && n2 === 2, `筛选后卡片数 balance=${n1} plan=${n2}`);
   await ctx.close();
-  return '全部4 / 套餐2 / 余额2，筛选各 2 张';
+  return '全部7 / 套餐2 / 余额5，筛选 5 与 2 张';
 });
 T('F7', '功能', '「⋯」更多菜单项齐全', async () => {
   const { ctx, page } = await newPage();
@@ -246,11 +246,11 @@ T('F11', '功能', '数据源不可用时优雅降级（无白屏/无异常）',
     text: document.body.innerText,
     tabs: !!document.querySelector('.tabs')
   }));
-  expect(s.cards === 4 && s.tabs, '降级后页面异常');
+  expect(s.cards === 7 && s.tabs, '降级后页面异常');
   expect(s.text.includes('未配置') || s.text.includes('本机还没有凭证'), '缺少降级提示');
   expect(errs.length === 0, 'JS 异常：' + errs.join(';'));
   await ctx.close();
-  return '4 张卡片正常降级，0 异常';
+  return '7 张卡片正常降级，0 异常';
 });
 T('F12', '功能', '锁定按钮回到锁定态', async () => {
   const { ctx, page } = await newPage();
@@ -479,6 +479,183 @@ T('E4', '效率', '解析到可交互 < 400ms', async () => {
   await ctx.close();
   expect(t < 400, `DOMContentLoaded 耗时 ${t}ms`);
   return `${t}ms`;
+});
+
+
+/* ============================ 设置页 ============================ */
+T('F13', '功能', '设置页可进入且分区齐全', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.click('#btnSet');
+  await page.waitForSelector('#btnBack', { timeout: 8000 });
+  const t = await page.evaluate(() => document.body.innerText);
+  ['关注的内容 · 模型', '关注的内容 · 平台', '修改访问 PIN', '清空本机全部数据']
+    .forEach(k => expect(t.includes(k), '缺少分区：' + k));
+  await ctx.close();
+  return '模型 / 平台 / 安全 三区齐全';
+});
+T('F14', '功能', '模型取消关注后首页隐藏，且刷新后保持', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  const before = await page.evaluate(() => document.querySelectorAll('.mname').length);
+  await page.evaluate(() => toggleModel('minimax:video'));
+  await new Promise(r => setTimeout(r, 400));
+  await page.evaluate(() => { view = 'home'; render(); });
+  const after = await page.evaluate(() => [...document.querySelectorAll('.mname')].map(e => e.textContent));
+  expect(before === 2 && after.length === 1, `模型数 ${before} → ${after.length}`);
+  // 重新加载（模拟重启）后仍隐藏
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pin', { timeout: 8000 });
+  await page.type('#pin', '1234');
+  await page.click('#gateGo');
+  await page.waitForSelector('.tabs', { timeout: 20000 });
+  await new Promise(r => setTimeout(r, 600));
+  const persisted = await page.evaluate(() => document.querySelectorAll('.mname').length);
+  expect(persisted === 1, '重启后未保持：' + persisted);
+  await ctx.close();
+  return '2 → 1 个模型，重启后保持';
+});
+T('F15', '功能', '平台取消关注后首页与计数同步', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.evaluate(() => { view = 'settings'; renderSettings(); toggleProvider('glm'); });
+  await new Promise(r => setTimeout(r, 400));
+  await page.evaluate(() => { view = 'home'; render(); });
+  const d = await page.evaluate(() => ({
+    cards: document.querySelectorAll('.card').length,
+    tab: document.querySelector('.tabs .tab').textContent.replace(/\s+/g, '')
+  }));
+  expect(d.cards === 6 && d.tab === '全部6', `卡片 ${d.cards} / ${d.tab}`);
+  await ctx.close();
+  return '7 → 6 张卡片，计数同步';
+});
+T('F16', '功能', '设置页可从目录新增关注平台', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.evaluate(() => { view = 'settings'; renderSettings(); addSheet(); });
+  await page.waitForSelector('.menu-item', { timeout: 8000 });
+  await page.evaluate(() => addPreset('grok'));
+  await new Promise(r => setTimeout(r, 900));
+  const d = await page.evaluate(() => ({
+    n: S.providers.length,
+    names: S.providers.map(x => x.name),
+    restricted: (S.providers.find(x => x.id === 'grok') || {}).restricted
+  }));
+  expect(d.n === 8 && d.names.includes('Grok · xAI'), '新增失败：' + d.names.join(','));
+  expect(d.restricted === true, '受限标记未落库');
+  await ctx.close();
+  return '平台 7 → 8（Grok · xAI，受限）';
+});
+
+T('F17', '功能', '设置页可删除平台（含清理其模型关注项）', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  page.on('dialog', d => d.accept());
+  await page.evaluate(() => { S.hiddenModels = ['glm:general']; view = 'settings'; renderSettings(); removeProvider('glm'); });
+  await new Promise(r => setTimeout(r, 800));
+  const d = await page.evaluate(() => ({
+    n: S.providers.length,
+    ids: S.providers.map(x => x.id),
+    hidden: S.hiddenModels
+  }));
+  expect(d.n === 6 && !d.ids.includes('glm'), '删除失败：' + d.ids.join(','));
+  expect(!d.hidden.some(k => k.startsWith('glm:')), '残留关注项：' + d.hidden);
+  await ctx.close();
+  return '平台 7 → 6，glm 关注项一并清理';
+});
+T('F18', '功能', '修改 PIN 后旧 PIN 失效、新 PIN 可用', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.evaluate(() => changePinSheet());
+  await page.waitForSelector('#np');
+  await page.type('#np', '5678');
+  await page.type('#np2', '5678');
+  await page.evaluate(() => changePin());
+  await new Promise(r => setTimeout(r, 900));
+  // 锁屏后用旧 PIN
+  await page.evaluate(() => lock());
+  await page.waitForSelector('#pin');
+  await page.type('#pin', '1234');
+  await page.click('#gateGo');
+  await new Promise(r => setTimeout(r, 900));
+  const oldOk = await page.evaluate(() => !!document.querySelector('.tabs'));
+  // 用新 PIN
+  await page.evaluate(() => { const el = document.querySelector('#pin'); if (el) el.value = ''; });
+  await page.type('#pin', '5678');
+  await page.click('#gateGo');
+  await page.waitForSelector('.tabs', { timeout: 8000 });
+  expect(!oldOk, '旧 PIN 仍然可用');
+  await ctx.close();
+  return '旧 PIN 拒绝 · 新 PIN 解锁成功';
+});
+
+
+/* ============================ 平台目录 ============================ */
+T('F19', '功能', '平台目录 12 项，受限平台已标注', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  const d = await page.evaluate(() => ({
+    total: PRESETS.length,
+    keys: PRESETS.map(x => x.key),
+    restricted: PRESETS.filter(x => x.restricted).map(x => x.key)
+  }));
+  expect(d.total === 12, '目录项 ' + d.total);
+  ['feishu', 'qwen', 'hunyuan', 'codex', 'grok', 'claude', 'custom'].forEach(k =>
+    expect(d.keys.includes(k), '缺少 ' + k));
+  expect(JSON.stringify(d.restricted) === JSON.stringify(['codex', 'grok', 'claude', 'google']),
+    '受限清单不符：' + d.restricted);
+  await ctx.close();
+  return '12 项 / 受限：codex·grok·claude·google';
+});
+T('F20', '功能', '一键添加受限平台并带「受限制」标记', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.evaluate(() => addPreset('codex'));
+  await new Promise(r => setTimeout(r, 800));
+  const d = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('.card')].find(x => x.textContent.includes('Codex'));
+    return { exists: !!c, text: c ? c.innerText.replace(/\s+/g, ' ') : '', n: S.providers.length };
+  });
+  expect(d.exists, 'Codex 卡片未出现');
+  expect(d.text.includes('受限制'), '缺少受限制标记');
+  expect(d.n === 8, '平台数 ' + d.n);
+  await ctx.close();
+  return 'Codex 已添加 · 带受限制标记';
+});
+T('F21', '功能', '手动额度填写后首页展示百分比与备注', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.evaluate(() => manualSheet('qwen'));
+  await page.waitForSelector('#mp');
+  await page.type('#mp', '72');
+  await page.type('#mt', '本月剩 ¥120');
+  await page.evaluate(() => saveManual('qwen'));
+  await new Promise(r => setTimeout(r, 900));
+  const d = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('.card')].find(x => x.textContent.includes('阿里'));
+    return { text: c ? c.innerText.replace(/\s+/g, ' ') : '', pct: c ? (c.querySelector('.mlab b') || {}).textContent : '' };
+  });
+  expect(d.pct === '72%', '百分比 ' + d.pct);
+  expect(d.text.includes('本月剩 ¥120'), '备注未展示');
+  await ctx.close();
+  return '72% + 备注已上屏';
+});
+T('F22', '功能', '自定义平台走手动适配器', async () => {
+  const { ctx, page } = await newPage();
+  await unlock(page);
+  await page.evaluate(() => customSheet());
+  await page.waitForSelector('#nName');
+  await page.type('#nName', '自建网关');
+  await page.evaluate(() => createProvider());
+  await new Promise(r => setTimeout(r, 800));
+  const d = await page.evaluate(() => {
+    const x = S.providers.find(p => p.name === '自建网关');
+    return { exists: !!x, adapter: x && x.adapter, n: S.providers.length };
+  });
+  expect(d.exists && d.adapter === 'manual', '自定义平台未走 manual：' + JSON.stringify(d));
+  expect(d.n === 8, '平台数 ' + d.n);
+  await ctx.close();
+  return 'adapter=manual，平台 7 → 8';
 });
 
 /* ============================ 执行 ============================ */
