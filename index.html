@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>额度中枢</title>
+<style>
+  :root{
+    --bg:#0b0d10;--panel:#141820;--panel2:#1a1f29;--line:#242b36;
+    --txt:#e8edf5;--sub:#8b97a8;--dim:#5f6b7c;
+    --green:#3ddc84;--amber:#f5b544;--red:#f2545b;--blue:#4f8dff;
+    --safe:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(900px 500px at 15% -8%,#16202e 0%,var(--bg) 60%);
+    color:var(--txt);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;padding:calc(18px + env(safe-area-inset-top)) 14px calc(84px + var(--safe))}
+  .wrap{max-width:560px;margin:0 auto}
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+  h1{font-size:19px;margin:0;font-weight:680;letter-spacing:.2px}
+  .sub{color:var(--sub);font-size:12px;margin-top:3px}
+  .lockbtn{border:1px solid var(--line);background:var(--panel2);color:var(--sub);
+    border-radius:9px;padding:6px 11px;font-size:12px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;color:var(--dim);font-size:11px;margin-bottom:12px}
+  .legend b{color:var(--sub);font-weight:600}
+  .card{background:linear-gradient(180deg,var(--panel),#11151c);border:1px solid var(--line);
+    border-radius:16px;padding:14px 15px;margin-bottom:12px;position:relative;overflow:hidden}
+  .card::after{content:"";position:absolute;left:0;top:0;height:2px;width:100%;
+    background:linear-gradient(90deg,var(--blue),transparent);opacity:.75}
+  .card.s-ok::after{background:linear-gradient(90deg,var(--green),transparent)}
+  .card.s-expiring::after{background:linear-gradient(90deg,var(--amber),transparent)}
+  .card.s-error::after,.card.s-unauthenticated::after{background:linear-gradient(90deg,var(--red),transparent)}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .name{font-size:15.5px;font-weight:660;display:flex;align-items:center;gap:8px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none}
+  .s-ok .dot{background:var(--green);box-shadow:0 0 8px rgba(61,220,132,.7)}
+  .s-expiring .dot{background:var(--amber);box-shadow:0 0 8px rgba(245,181,68,.7)}
+  .s-error .dot,.s-unauthenticated .dot{background:var(--red);box-shadow:0 0 8px rgba(242,84,91,.6)}
+  .badge{font-size:10.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--sub);white-space:nowrap}
+  .badge.token_plan{color:#8fb6ff;border-color:#2a4570;background:#132439}
+  .badge.coding_plan{color:#c9a9ff;border-color:#3d2f63;background:#1e1730}
+  .badge.balance{color:#7fe0b0;border-color:#22473a;background:#10241d}
+  .badge.usage{color:#9aa7b8;border-color:#2a313c;background:#171b22}
+  .big{font-size:31px;font-weight:700;letter-spacing:-.6px;margin:8px 0 2px}
+  .big small{font-size:13px;color:var(--sub);font-weight:500;margin-left:4px}
+  .metric{margin-top:11px}
+  .metric .top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--sub);margin-bottom:5px}
+  .metric .top b{color:var(--txt);font-weight:640}
+  .bar{height:6px;border-radius:99px;background:#1f2530;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2f6df6,#56c8ff);transition:width .5s}
+  .bar i.warn{background:linear-gradient(90deg,#e8a13a,#f5d16b)}
+  .bar i.low{background:linear-gradient(90deg,#e04a52,#f2878d)}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--dim);font-size:11px;margin-top:6px}
+  .note{color:var(--sub);font-size:12px;margin-top:8px}
+  .keyline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;padding:7px 9px;
+    border:1px solid #1e2531;border-radius:9px;background:#0f1319;font-size:11.5px}
+  .keyline .lock{color:var(--green)}
+  .keyline code{font:11px/1.4 ui-monospace,Menlo,monospace;color:#8fb6ff;background:#132239;
+    border:1px solid #22304a;border-radius:5px;padding:1px 6px}
+  .foot{display:flex;gap:8px;align-items:center;margin-top:11px;padding-top:11px;border-top:1px solid #1c222c;flex-wrap:wrap}
+  .foot a{color:var(--dim);font-size:11.5px;text-decoration:none;border-bottom:1px dashed #2b3442}
+  .foot .sp{flex:1}
+  .tiny{border:1px solid var(--line);background:var(--panel2);color:var(--sub);
+    border-radius:8px;padding:5px 10px;font-size:12px}
+  .fab{position:fixed;right:16px;bottom:calc(20px + var(--safe));display:flex;gap:10px}
+  .fab button{border-radius:14px;padding:13px 18px;font-size:14px;font-weight:620;border:1px solid #2f6df6;
+    background:linear-gradient(180deg,#2f6df6,#2456c8);color:#fff;box-shadow:0 8px 24px rgba(47,109,246,.35)}
+  .fab button.alt{background:var(--panel2);border-color:var(--line);color:var(--txt);box-shadow:none}
+  .sheet-bg{position:fixed;inset:0;background:rgba(4,6,10,.72);backdrop-filter:blur(8px);display:none;z-index:30;
+    align-items:flex-end;justify-content:center}
+  .sheet-bg.on{display:flex}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-top-left-radius:20px;border-top-right-radius:20px;
+    width:100%;max-width:560px;padding:20px 18px calc(22px + var(--safe));max-height:88vh;overflow:auto;
+    animation:up .22s ease}
+  @keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+  .sheet h3{margin:0 0 6px;font-size:16.5px}
+  .sheet p{color:var(--sub);font-size:12.5px;margin:0 0 14px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px}
+  input,select{width:100%;background:#0f1319;border:1px solid var(--line);border-radius:11px;
+    color:var(--txt);padding:12px 13px;font:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--blue)}
+  .btnrow{display:flex;gap:10px;margin-top:6px}
+  .btnrow button{flex:1;border-radius:11px;padding:12px;font-size:14.5px;font-weight:620;
+    border:1px solid var(--line);background:var(--panel2);color:var(--txt)}
+  .btnrow button.primary{background:linear-gradient(180deg,#2f6df6,#2456c8);border-color:#2f6df6;color:#fff}
+  .hint{color:var(--dim);font-size:11.5px;margin-top:10px;line-height:1.5}
+  .toast{position:fixed;left:50%;bottom:calc(96px + var(--safe));transform:translateX(-50%) translateY(10px);
+    background:#1c2431;border:1px solid var(--line);padding:10px 16px;border-radius:11px;font-size:13px;
+    opacity:0;transition:.25s;z-index:40;max-width:86vw;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .gate{max-width:380px;margin:14vh auto 0;text-align:center}
+  .gate .logo{font-size:30px;margin-bottom:10px}
+  .gate h2{font-size:19px;margin:0 0 6px}
+  .gate p{color:var(--sub);font-size:13px;margin:0 0 20px}
+  .gate input{text-align:center;letter-spacing:6px;font-size:20px}
+  .empty{color:var(--dim);text-align:center;padding:36px 16px;border:1px dashed var(--line);border-radius:14px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+<div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
+
+<script>
+/* =========================================================
+   额度中枢 · 手机端单文件应用
+   - 所有请求直接从手机发起，不经过任何服务器
+   - 密钥 AES-256-GCM 加密后存本机，解锁才可用；只展示指纹
+   ========================================================= */
+const LS_VAULT = 'lqh.vault.v1';
+const LS_META  = 'lqh.meta.v1';
+const AUTO_LOCK_MS = 5 * 60 * 1000;
+
+let S = { providers: [], unlocked: false, key: null, salt: null, idleAt: Date.now(), timer: null };
+const $ = s => document.querySelector(s);
+const toastEl = $('#toast');
+
+const TYPE_TXT = { token_plan:'Token Plan', coding_plan:'Coding Plan', balance:'余额', usage:'按量' };
+const ST_TXT = { ok:'正常', expiring:'即将过期', error:'异常', unauthenticated:'未配置', disabled:'已停用' };
+
+const DEFAULT_PROVIDERS = [
+  { id:'minimax', name:'MiniMax', type:'token_plan', authKind:'api_key', apiKey:'',
+    note:'Token Plan 周期额度', base:'https://api.minimaxi.com',
+    links:[{label:'Token Plan 控制台',url:'https://platform.minimaxi.com/subscribe/token-plan'}] },
+  { id:'kimi', name:'Kimi（Moonshot）', type:'balance', authKind:'api_key', apiKey:'',
+    note:'按量计费，展示可用余额',
+    links:[{label:'Moonshot 控制台',url:'https://platform.moonshot.cn/console/info'}] },
+  { id:'deepseek', name:'DeepSeek', type:'balance', authKind:'api_key', apiKey:'',
+    note:'仅按量调用，展示剩余金额',
+    links:[{label:'DeepSeek 平台',url:'https://platform.deepseek.com/usage'}] },
+  { id:'glm', name:'智谱 GLM', type:'coding_plan', authKind:'api_key', apiKey:'',
+    note:'套餐额度未开放接口，展示连通状态',
+    links:[{label:'GLM 控制台用量',url:'https://bigmodel.cn/usercenter/usagestatistics'}] }
+];
+
+/* ---------------- 工具 ---------------- */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(()=>toastEl.classList.remove('on'), 2400); }
+function fmtTime(ts){ if(!ts) return '—'; const d = new Date(ts); return isNaN(d) ? '—' : d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function barCls(p){ if(p==null) return ''; if(p<15) return 'low'; if(p<40) return 'warn'; return ''; }
+
+/* ---------------- 加密存储 ---------------- */
+async function deriveKey(pin, salt){
+  const base = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt, iterations: 210000, hash:'SHA-256' },
+    base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+}
+async function encryptVault(data, key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+  return { iv: b64(iv), ct: b64(ct) };
+}
+async function decryptVault(box, key){
+  const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv: unb64(box.iv) }, key, unb64(box.ct));
+  return JSON.parse(dec.decode(pt));
+}
+async function fingerprint(secret){
+  if(!secret) return null;
+  const h = await crypto.subtle.digest('SHA-256', enc.encode(secret));
+  return [...new Uint8Array(h)].slice(0,5).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function persist(){
+  const box = await encryptVault({ providers: S.providers }, S.key);
+  localStorage.setItem(LS_VAULT, JSON.stringify({ salt: b64(S.salt), iv: box.iv, ct: box.ct }));
+  // 锁屏时用于展示的元信息（不含密钥）
+  localStorage.setItem(LS_META, JSON.stringify({
+    providers: S.providers.map(p => ({ id:p.id, name:p.name, type:p.type, keyFp:p.keyFp || null }))
+  }));
+}
+
+/* ---------------- 解锁 / 初始化 ---------------- */
+function renderGate(mode){
+  const isInit = mode === 'init';
+  $('#app').innerHTML = `
+    <div class="gate">
+      <div class="logo">◍</div>
+      <h2>${isInit ? '设置访问密码' : '解锁额度中枢'}</h2>
+      <p>${isInit
+        ? '设置一个 PIN，用来加密保存在本机的各家密钥。<br>忘记 PIN 只能清空重配，密钥无法找回。'
+        : '密钥已加密保存在这台手机上，输入 PIN 解锁。'}</p>
+      <div class="field"><input id="pin" type="password" inputmode="numeric" maxlength="8"
+        placeholder="${isInit ? '设置 4–8 位数字' : '输入 PIN'}" autocomplete="off"></div>
+      ${isInit ? `<div class="field"><input id="pin2" type="password" inputmode="numeric" maxlength="8"
+        placeholder="再输一次确认" autocomplete="off"></div>` : ''}
+      <div class="btnrow"><button class="primary" id="gateGo">${isInit ? '创建并进入' : '解锁'}</button></div>
+      <div class="hint">密钥不会离开这台手机，页面只保存密文和指纹。</div>
+      ${isInit ? '' : '<div class="hint" style="margin-top:18px"><a href="#" id="resetAll" style="color:#f2545b">忘记 PIN · 清空全部配置</a></div>'}
+    </div>`;
+  $('#gateGo').onclick = async () => {
+    const pin = $('#pin').value.trim();
+    if (!/^\d{4,8}$/.test(pin)) return toast('PIN 需 4–8 位数字');
+    if (isInit){
+      if (pin !== $('#pin2').value.trim()) return toast('两次输入不一致');
+      S.salt = crypto.getRandomValues(new Uint8Array(16));
+      S.key = await deriveKey(pin, S.salt);
+      S.providers = DEFAULT_PROVIDERS.map(p => ({ ...p }));
+      S.unlocked = true;
+      await persist();
+      render();
+      toast('已创建，先给各家填 Key');
+    } else {
+      const box = JSON.parse(localStorage.getItem(LS_VAULT) || '{}');
+      try {
+        S.salt = unb64(box.salt);
+        S.key = await deriveKey(pin, S.salt);
+        S.providers = (await decryptVault(box, S.key)).providers;
+        S.unlocked = true;
+        render();
+      } catch { toast('PIN 不正确'); }
+    }
+  };
+  const rs = $('#resetAll');
+  if (rs) rs.onclick = (e) => {
+    e.preventDefault();
+    if (confirm('清空后本机保存的所有密钥都会删除，且无法恢复。继续？')){
+      localStorage.removeItem(LS_VAULT); localStorage.removeItem(LS_META);
+      location.reload();
+    }
+  };
+}
+
+function lock(){
+  S.unlocked = false; S.key = null; S.providers = [];
+  const meta = JSON.parse(localStorage.getItem(LS_META) || '{}');
+  if (!meta.providers) return location.reload();
+  renderLocked(meta.providers);
+}
+function renderLocked(list){
+  $('#app').innerHTML = `
+    <header><div><h1>额度中枢</h1><div class="sub">已锁定 · 输入 PIN 查看实时额度</div></div></header>
+    ${list.map(p => `<div class="card">
+      <div class="row"><div class="name"><span class="dot"></span>${esc(p.name)}</div>
+      <span class="badge ${esc(p.type)}">${TYPE_TXT[p.type]||''}</span></div>
+      <div class="keyline"><span class="lock">${p.keyFp?'已加密保存':'未配置'}</span>
+      ${p.keyFp?`<code>指纹 ${esc(p.keyFp)}</code>`:''}</div>
+    </div>`).join('')}
+    <div class="fab"><button onclick="location.reload()">解锁</button></div>`;
+}
+
+/* ---------------- 额度适配器（手机直连） ---------------- */
+async function jget(url, key, opts = {}){
+  const r = await fetch(url, {
+    method: opts.method || 'GET',
+    headers: { Authorization: 'Bearer ' + key, ...(opts.headers || {}) },
+    body: opts.body
+  });
+  const text = await r.text();
+  let body; try { body = JSON.parse(text); } catch { body = text; }
+  if (!r.ok) {
+    const msg = (body && body.error && (body.error.message || body.error.code)) || (body && body.base_resp && body.base_resp.status_msg) || ('HTTP ' + r.status);
+    const e = new Error(String(msg).slice(0, 120)); e.status = r.status; throw e;
+  }
+  return body;
+}
+
+async function statusOf(p){
+  const out = { id:p.id, name:p.name, type:p.type, authKind:p.authKind, links:p.links||[],
+                note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, metrics:[] };
+  if (!p.apiKey) return { ...out, status:'unauthenticated', note:'还没有填 Key，点「配置」' };
+
+  try {
+    if (p.id === 'minimax'){
+      const base = p.base || 'https://api.minimaxi.com';
+      const d = await jget(base + '/v1/token_plan/remains', p.apiKey);
+      out.metrics = (d.model_remains || []).map(m => {
+        const total = Number(m.current_interval_total_count || 0);
+        const used = Number(m.current_interval_usage_count || 0);
+        const left = Number(m.current_interval_remaining_percent ?? 100);
+        return { label:m.model_name, percentLeft:left,
+          text: total > 0 ? `当期 ${used}/${total} 次 · 本周 ${m.current_weekly_usage_count}/${m.current_weekly_total_count} 次`
+                          : `当期剩余 ${left}% · 本周剩余 ${m.current_weekly_remaining_percent}%`,
+          resetAt: m.end_time };
+      });
+      out.status = 'ok'; out.note = 'Token Plan 实时额度';
+    }
+    else if (p.id === 'kimi' || p.id === 'moonshot'){
+      const d = await jget('https://api.moonshot.cn/v1/users/me/balance', p.apiKey);
+      const b = (d && d.data) || {};
+      out.balance = { amount: Number(b.available_balance ?? 0), currency:'CNY' };
+      out.metrics = [{ label:'代金券余额', percentLeft:null, text:`¥${Number(b.voucher_balance ?? 0).toFixed(2)}` }];
+      out.status = 'ok'; out.note = '按量计费，余额实时';
+    }
+    else if (p.id === 'deepseek'){
+      const d = await jget('https://api.deepseek.com/user/balance', p.apiKey);
+      const infos = d.balance_infos || [];
+      const f = infos[0] || {};
+      out.balance = { amount: Number(f.total_balance ?? 0), currency: f.currency || 'CNY' };
+      out.metrics = infos.slice(1).map(i => ({ label:i.currency, percentLeft:null,
+        text:`总额 ${i.total_balance} · 赠金 ${i.granted_balance}` }));
+      out.status = d.is_available === false ? 'expiring' : 'ok';
+      out.note = d.is_available === false ? '余额不足' : '按量计费，余额实时';
+    }
+    else if (p.id === 'glm'){
+      await jget('https://open.bigmodel.cn/api/paas/v4/models', p.apiKey);
+      out.metrics = [{ label:'Coding Plan 额度', percentLeft:null, text:'平台未开放查询接口' }];
+      out.status = 'ok'; out.note = 'Key 有效；套餐剩余额度请在控制台查看';
+    }
+    else {
+      out.status = 'ok';
+      out.metrics = [{ label:'额度', percentLeft:null, text:'预留位，待接入适配器' }];
+    }
+  } catch (e) {
+    out.status = (e.status === 401 || e.status === 403) ? 'unauthenticated' : 'error';
+    out.note = '拉取失败：' + e.message;
+  }
+  out.updatedAt = Date.now();
+  return out;
+}
+
+/* ---------------- 渲染 ---------------- */
+let ST = [];
+function render(){
+  if (!S.unlocked) return;
+  const cards = ST.length ? ST.map(p => {
+    const type = p.type || 'usage', st = p.status || 'error';
+    const metrics = (p.metrics || []).map(m => {
+      const pct = (m.percentLeft == null) ? null : Math.max(0, Math.min(100, m.percentLeft));
+      return `<div class="metric">
+        <div class="top"><span>${esc(m.label)}</span><b>${pct==null?'':pct+'% 剩余'}</b></div>
+        ${pct==null?'':`<div class="bar"><i class="${barCls(pct)}" style="width:${pct}%"></i></div>`}
+        <div class="meta"><span>${esc(m.text||'')}</span>${m.resetAt?`<span>· 重置 ${fmtTime(m.resetAt)}</span>`:''}</div>
+      </div>`;
+    }).join('');
+    const bal = p.balance ? `<div class="big">¥${Number(p.balance.amount).toFixed(2)}<small>${esc(p.balance.currency||'CNY')} 可用</small></div>` : '';
+    return `<div class="card s-${esc(st)}">
+      <div class="row"><div class="name"><span class="dot"></span>${esc(p.name)}</div>
+        <span class="badge ${esc(type)}">${TYPE_TXT[type]||type}</span></div>
+      ${bal}${metrics}
+      <div class="note">${esc(p.note || ST_TXT[st] || '')}</div>
+      <div class="meta"><span>${ST_TXT[st]||st}</span>
+        ${p.updatedAt?`<span>· ${fmtTime(p.updatedAt)} 更新</span>`:''}</div>
+      ${p.authKind === 'api_key' ? `<div class="keyline">
+        <span class="lock">${p.keySaved?'已加密保存':'未配置 Key'}</span>
+        ${p.keyFp?`<code>指纹 ${esc(p.keyFp)}</code>`:''}</div>` : ''}
+      <div class="foot">
+        ${(p.links||[]).map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noreferrer">${esc(l.label)}</a>`).join('')}
+        <span class="sp"></span>
+        ${p.keySaved?`<button class="tiny" onclick="editKey('${esc(p.id)}')">替换</button>`:''}
+        <button class="tiny" onclick="editKey('${esc(p.id)}')">${p.keySaved?'配置':'配置 Key'}</button>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">还没有平台，点右下角「接入」添加。</div>';
+
+  $('#app').innerHTML = `
+    <header>
+      <div><h1>额度中枢</h1><div class="sub">已解锁 · ${new Date().toLocaleTimeString('zh-CN')}</div></div>
+      <button class="lockbtn" id="btnLock">锁定</button>
+    </header>
+    <div class="legend">
+      <span><b>Token Plan</b></span><span><b>Coding Plan</b></span>
+      <span><b>Balance</b></span><span><b>Usage</b></span>
+    </div>
+    ${cards}
+    <div class="fab">
+      <button class="alt" id="btnAdd">接入</button>
+      <button id="btnRefresh">刷新</button>
+    </div>`;
+  $('#btnLock').onclick = lock;
+  $('#btnAdd').onclick = addSheet;
+  $('#btnRefresh').onclick = () => refresh(true);
+}
+
+async function refresh(manual){
+  if (!S.unlocked) return;
+  if (manual) toast('正在刷新…');
+  ST = await Promise.all(S.providers.map(statusOf));
+  render();
+  if (manual) toast('已刷新');
+}
+
+/* ---------------- 配置 Key ---------------- */
+function editKey(id){
+  const p = S.providers.find(x => x.id === id);
+  openSheet(`<h3>${esc(p.name)} · 配置 Key</h3>
+    <p>Key 会以 AES-256-GCM 加密后存进这台手机，页面只显示指纹，不显示 Key 本体。</p>
+    <div class="field"><label>API Key</label>
+      <input id="k" type="password" placeholder="粘贴 Key" autocomplete="off" spellcheck="false" autocapitalize="off">
+      <button class="tiny" style="margin-top:8px" onclick="const e=document.getElementById('k');e.type=e.type==='password'?'text':'password'">显示 / 隐藏</button>
+    </div>
+    ${p.id==='minimax'?`<div class="field"><label>区域</label>
+      <select id="base"><option value="https://api.minimaxi.com">国内 api.minimaxi.com</option>
+      <option value="https://api.minimax.io">海外 api.minimax.io</option></select></div>`:''}
+    <div class="btnrow">
+      <button onclick="closeSheet()">取消</button>
+      <button class="primary" onclick="saveKey('${id}')">保存</button>
+    </div>
+    ${p.apiKey?`<div class="btnrow" style="margin-top:10px">
+      <button onclick="dropKey('${id}')" style="color:#f2545b">解绑并删除密钥</button></div>`:''}`);
+}
+
+async function saveKey(id){
+  const p = S.providers.find(x => x.id === id);
+  const el = $('#k'); const v = el.value.trim();
+  if (!v) return toast('请先填入 Key');
+  p.apiKey = v;
+  p.keyFp = await fingerprint(v);
+  const sel = $('#base'); if (sel) p.base = sel.value;
+  el.value = '';                 // 明文不留存
+  await persist();
+  closeSheet();
+  toast('已加密保存 · 指纹 ' + p.keyFp);
+  await refresh();
+}
+
+async function dropKey(id){
+  if (!confirm('删除后本机不再保存这把 Key，调用将不可用。继续？')) return;
+  const p = S.providers.find(x => x.id === id);
+  p.apiKey = ''; p.keyFp = null;
+  await persist(); closeSheet(); toast('已解绑'); await refresh();
+}
+
+/* ---------------- 接入新平台 ---------------- */
+function addSheet(){
+  openSheet(`<h3>接入新平台</h3>
+    <p>先建卡片占位，额度类型决定它怎么展示。</p>
+    <div class="field"><label>平台名称</label><input id="nName" placeholder="如 通义 / 火山方舟"></div>
+    <div class="field"><label>额度类型</label><select id="nType">
+      <option value="token_plan">Token Plan（周期配额）</option>
+      <option value="coding_plan">Coding Plan（套餐额度）</option>
+      <option value="balance">Balance（账户余额）</option>
+      <option value="usage">Usage（按量明细）</option></select></div>
+    <div class="field"><label>备注（可选）</label><input id="nNote" placeholder="预留位说明"></div>
+    <div class="btnrow"><button onclick="closeSheet()">取消</button>
+      <button class="primary" onclick="createProvider()">创建</button></div>`);
+}
+async function createProvider(){
+  const name = $('#nName').value.trim();
+  if (!name) return toast('请填平台名称');
+  S.providers.push({
+    id: 'c' + Date.now().toString(36), name,
+    type: $('#nType').value, authKind:'api_key', apiKey:'',
+    note: $('#nNote').value.trim() || '预留位，待接入适配器', links:[]
+  });
+  await persist(); closeSheet(); toast('已添加'); await refresh();
+}
+
+/* ---------------- 弹层 ---------------- */
+function openSheet(html){ $('#sheet').innerHTML = html; $('#sheetBg').classList.add('on'); }
+function closeSheet(){ $('#sheetBg').classList.remove('on'); }
+$('#sheetBg').addEventListener('click', e => { if (e.target.id === 'sheetBg') closeSheet(); });
+
+/* ---------------- 自动锁定 ---------------- */
+['click','keydown','touchstart'].forEach(ev => document.addEventListener(ev, () => { S.idleAt = Date.now(); }, { passive:true }));
+setInterval(() => { if (S.unlocked && Date.now() - S.idleAt > AUTO_LOCK_MS) { lock(); toast('已自动锁定'); } }, 20000);
+
+/* ---------------- 启动 ---------------- */
+(async function boot(){
+  if (!localStorage.getItem(LS_VAULT)) return renderGate('init');
+  renderGate('unlock');
+})();
+</script>
+</body>
+</html>
