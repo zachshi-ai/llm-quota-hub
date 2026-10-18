@@ -295,10 +295,16 @@ function minimaxMetrics(model_remains){
 
     const mTotal = Number(m.current_weekly_total_count || 0);
     const mUsed = Number(m.current_weekly_usage_count || 0);
+    const remainRaw = Number(m.current_weekly_remaining_percent ?? 100);
+    // 周额度总额受 boost 放大（1500‰ = 150%），接口给的是「相对总额的剩余百分比」
+    const totalPct = boost / 10;                       // 1000‰ → 100%，1500‰ → 150%
+    const usedPct = (100 - remainRaw) / 100 * totalPct; // 换算到总额口径
+    const leftPct = totalPct - usedPct;
     rows.push({
-      label: `${name} · 本周${boostTxt}`,
-      percentLeft: Number(m.current_weekly_remaining_percent ?? 100),
-      text: mTotal > 0 ? `已用 ${mUsed}/${mTotal} 次` : '不限次数，按 token 计',
+      label: `${name} · 本周（总额 ${totalPct}%）`,
+      percentLeft: remainRaw,
+      text: `已用 ${usedPct.toFixed(1)}% · 剩余 ${leftPct.toFixed(1)}%` +
+            (mTotal > 0 ? ` · 已用 ${mUsed}/${mTotal} 次` : ''),
       resetAt: m.weekly_end_time
     });
   });
