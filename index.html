@@ -332,8 +332,12 @@ async function statusOf(p){
         if (snap.balance) {
           out.balance = { amount: Number(snap.balance.available_amount || 0), currency: 'CNY' };
           out.metrics.push({
-            label: '积分 / 代金券', percentLeft: null,
-            text: `积分 ${Number(snap.balance.credit_balance || 0).toFixed(2)} · 代金券 ¥${Number(snap.balance.voucher_balance || 0).toFixed(2)} · 现金 ¥${Number(snap.balance.cash_balance || 0).toFixed(2)}`
+            label: '账户余额构成', percentLeft: null,
+            text: `现金 ¥${Number(snap.balance.cash_balance || 0).toFixed(2)} · 代金券 ¥${Number(snap.balance.voucher_balance || 0).toFixed(2)}`
+          });
+          out.metrics.push({
+            label: '积分（订阅/充值/赠送）', percentLeft: null,
+            text: '需管理密钥才能读取'
           });
         }
         out.status = 'ok';
@@ -359,8 +363,12 @@ async function statusOf(p){
         if (bl && Number(bl.available_amount || 0) >= 0) {
           out.balance = { amount: Number(bl.available_amount || 0), currency: 'CNY' };
           out.metrics.push({
-            label: '积分 / 代金券', percentLeft: null,
-            text: `积分 ${Number(bl.credit_balance || 0).toFixed(2)} · 代金券 ¥${Number(bl.voucher_balance || 0).toFixed(2)} · 现金 ¥${Number(bl.cash_balance || 0).toFixed(2)}`
+            label: '账户余额构成', percentLeft: null,
+            text: `现金 ¥${Number(bl.cash_balance || 0).toFixed(2)} · 代金券 ¥${Number(bl.voucher_balance || 0).toFixed(2)}`
+          });
+          out.metrics.push({
+            label: '积分（订阅/充值/赠送）', percentLeft: null,
+            text: '需管理密钥才能读取'
           });
         }
       } catch (e) {}
