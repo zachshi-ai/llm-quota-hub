@@ -291,19 +291,72 @@ const KEY_URL = {
 };
 const ST_TXT = { ok:'正常', expiring:'即将到期', error:'异常', unauthenticated:'未配置', disabled:'已停用' };
 
+/* 平台目录：adapter=manual 表示接口未开放，只能手动记额度；restricted=受限制 */
+const PRESETS = [
+  { key:'minimax', name:'MiniMax', short:'M', color:'#3370FF', type:'token_plan', adapter:'minimax',
+    note:'Token Plan 周期额度，云端自动同步',
+    keyUrl:'https://platform.minimaxi.com/user-center/basic-information/interface-key',
+    links:[{label:'控制台',url:'https://platform.minimaxi.com/subscribe/token-plan'}] },
+  { key:'kimi', name:'Kimi', short:'K', color:'#1F2329', type:'balance', adapter:'moonshot',
+    note:'按量计费，展示账户余额',
+    keyUrl:'https://platform.moonshot.cn/console/api-keys',
+    links:[{label:'控制台',url:'https://platform.moonshot.cn/console/info'}] },
+  { key:'deepseek', name:'DeepSeek', short:'D', color:'#4D6BFE', type:'balance', adapter:'deepseek',
+    note:'按量计费，展示剩余金额',
+    keyUrl:'https://platform.deepseek.com/api_keys',
+    links:[{label:'用量',url:'https://platform.deepseek.com/usage'}] },
+  { key:'glm', name:'智谱 GLM', short:'智', color:'#722ED1', type:'coding_plan', adapter:'glm',
+    note:'套餐额度未开放接口，展示 Key 连通状态',
+    keyUrl:'https://bigmodel.cn/usercenter/proj-mgmt/apikeys',
+    links:[{label:'用量',url:'https://bigmodel.cn/usercenter/usagestatistics'}] },
+  { key:'qwen', name:'阿里 · 百炼', short:'阿', color:'#FF6A00', type:'usage', adapter:'manual',
+    note:'控制台有用量明细，未开放余额接口 → 手动记录',
+    links:[{label:'百炼控制台',url:'https://bailian.console.aliyun.com/'}] },
+  { key:'hunyuan', name:'腾讯 · 混元', short:'腾', color:'#0052D9', type:'usage', adapter:'manual',
+    note:'无公开额度接口 → 手动记录',
+    links:[{label:'混元控制台',url:'https://console.cloud.tencent.com/hunyuan'}] },
+  { key:'feishu', name:'飞书', short:'飞', color:'#3370FF', type:'usage', adapter:'manual',
+    note:'开放平台配额无查询接口 → 手动记录',
+    links:[{label:'开放平台',url:'https://open.feishu.cn/app'}] },
+  { key:'codex', name:'Codex · OpenAI', short:'C', color:'#10A37F', type:'usage', adapter:'manual', restricted:true,
+    note:'受限制：国内不可直连，额度仅网页可见 → 手动记录',
+    links:[{label:'用量',url:'https://platform.openai.com/usage'}] },
+  { key:'grok', name:'Grok · xAI', short:'G', color:'#1D1D1F', type:'usage', adapter:'manual', restricted:true,
+    note:'受限制：需海外网络与账号 → 手动记录',
+    links:[{label:'控制台',url:'https://console.x.ai/'}] },
+  { key:'claude', name:'Claude · Anthropic', short:'A', color:'#D97757', type:'usage', adapter:'manual', restricted:true,
+    note:'受限制：无个人余额接口 → 手动记录',
+    links:[{label:'用量',url:'https://console.anthropic.com/settings/usage'}] },
+  { key:'google', name:'Google · Gemini', short:'G', color:'#4285F4', type:'usage', adapter:'manual', restricted:true,
+    note:'受限制：需海外网络 → 手动记录',
+    links:[{label:'AI Studio',url:'https://aistudio.google.com/'}] },
+  { key:'custom', name:'自定义', short:'＋', color:'#86909C', type:'usage', adapter:'manual',
+    note:'自建服务或其他平台，手动维护额度' }
+];
+const PRESET_OF = key => PRESETS.find(x => x.key === key);
+
 const DEFAULT_PROVIDERS = [
-  { id:'minimax', name:'MiniMax', type:'token_plan', authKind:'api_key', apiKey:'',
+  { id:'minimax', name:'MiniMax', type:'token_plan', adapter:'minimax', authKind:'api_key', apiKey:'',
     note:'Token Plan 周期额度', base:'https://api.minimaxi.com',
     links:[{label:'控制台',url:'https://platform.minimaxi.com/subscribe/token-plan'}] },
-  { id:'kimi', name:'Kimi', type:'balance', authKind:'api_key', apiKey:'',
+  { id:'kimi', name:'Kimi', type:'balance', adapter:'moonshot', authKind:'api_key', apiKey:'',
     note:'按量计费，展示可用余额',
     links:[{label:'控制台',url:'https://platform.moonshot.cn/console/info'}] },
-  { id:'deepseek', name:'DeepSeek', type:'balance', authKind:'api_key', apiKey:'',
+  { id:'deepseek', name:'DeepSeek', type:'balance', adapter:'deepseek', authKind:'api_key', apiKey:'',
     note:'按量计费，展示剩余金额',
     links:[{label:'用量',url:'https://platform.deepseek.com/usage'}] },
-  { id:'glm', name:'智谱 GLM', type:'coding_plan', authKind:'api_key', apiKey:'',
+  { id:'glm', name:'智谱 GLM', type:'coding_plan', adapter:'glm', authKind:'api_key', apiKey:'',
     note:'套餐额度未开放查询接口',
-    links:[{label:'用量',url:'https://bigmodel.cn/usercenter/usagestatistics'}] }
+    links:[{label:'用量',url:'https://bigmodel.cn/usercenter/usagestatistics'}] },
+  { id:'qwen', name:'阿里 · 百炼', type:'usage', adapter:'manual', authKind:'manual', apiKey:'',
+    note:'控制台有用量明细，未开放余额接口 → 手动记录',
+    links:[{label:'百炼控制台',url:'https://bailian.console.aliyun.com/'}] },
+  { id:'hunyuan', name:'腾讯 · 混元', type:'usage', adapter:'manual', authKind:'manual', apiKey:'',
+    note:'无公开额度接口 → 手动记录',
+    links:[{label:'混元控制台',url:'https://console.cloud.tencent.com/hunyuan'}] },
+  { id:'feishu', name:'飞书', type:'usage', adapter:'manual', authKind:'manual', apiKey:'',
+    note:'开放平台配额无查询接口 → 手动记录',
+    links:[{label:'开放平台',url:'https://open.feishu.cn/app'}] }
 ];
 
 /* ---------------- 工具 ---------------- */
@@ -498,11 +551,35 @@ async function cloudSnapshot(){
   } catch { return null; }
 }
 
+function manualStatus(p, out){
+  const m = p.manual || {};
+  out.adapter = 'manual';
+  if (m.pct == null) {
+    out.status = 'unauthenticated';
+    out.metrics = [{ label:'剩余额度（手动）', pct:null, text:'点右上「⋯」→ 更新额度，填一个百分比' }];
+  } else {
+    out.status = 'ok';
+    out.metrics = [{
+      label:'剩余额度（手动）', pct: m.pct,
+      text: (m.text ? m.text + ' · ' : '') + '手动记录 ' + ago(m.updatedAt)
+    }];
+  }
+  out.manual = true;
+  out.restricted = !!p.restricted;
+  out.updatedAt = Date.now();
+  return out;
+}
+
 async function statusOf(p){
-  const out = { id:p.id, name:p.name, type:p.type, authKind:p.authKind, links:p.links||[],
-                note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, hidden: !!p.hidden, metrics:[] };
+  const adapter = p.adapter || p.id;
+  const out = { id:p.id, name:p.name, type:p.type, adapter, authKind:p.authKind, links:p.links||[],
+                note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, hidden: !!p.hidden,
+                restricted: !!p.restricted, metrics:[] };
+
+  if (adapter === 'manual') return manualStatus(p, out);
+
   if (!p.apiKey) {
-    if (p.id === 'minimax') {
+    if (adapter === 'minimax') {
       const snap = await cloudSnapshot();
       if (snap) {
         out.groups = minimaxGroups(snap.model_remains);
@@ -524,11 +601,11 @@ async function statusOf(p){
       }
     }
     return { ...out, status:'unauthenticated',
-      note:'本机还没有凭证。可点「配置」填 API Key，或让我发起云端 OAuth 授权。' };
+      note:'本机还没有凭证。可点「⋯ → 配置 API Key」，或让我发起云端 OAuth 授权。' };
   }
 
   try {
-    if (p.id === 'minimax'){
+    if (adapter === 'minimax'){
       const base = p.base || 'https://api.minimaxi.com';
       const d = await jget(base + '/v1/token_plan/remains', p.apiKey);
       out.groups = minimaxGroups(d.model_remains);
@@ -545,14 +622,14 @@ async function statusOf(p){
       } catch (e) {}
       out.status = 'ok'; out.note = 'Token Plan 实时额度（本机直连）';
     }
-    else if (p.id === 'kimi' || p.id === 'moonshot'){
+    else if (adapter === 'moonshot'){
       const d = await jget('https://api.moonshot.cn/v1/users/me/balance', p.apiKey);
       const b = (d && d.data) || {};
       out.balance = { amount: Number(b.available_balance ?? 0), voucher: Number(b.voucher_balance ?? 0), currency:'CNY' };
       out.metrics = [{ label:'代金券余额', pct:null, text:`¥${Number(b.voucher_balance ?? 0).toFixed(2)}` }];
       out.status = 'ok'; out.note = '按量计费，余额实时';
     }
-    else if (p.id === 'deepseek'){
+    else if (adapter === 'deepseek'){
       const d = await jget('https://api.deepseek.com/user/balance', p.apiKey);
       const infos = d.balance_infos || [];
       const f = infos[0] || {};
@@ -562,7 +639,7 @@ async function statusOf(p){
       out.status = d.is_available === false ? 'expiring' : 'ok';
       out.note = d.is_available === false ? '余额不足' : '按量计费，余额实时';
     }
-    else if (p.id === 'glm'){
+    else if (adapter === 'glm'){
       await jget('https://open.bigmodel.cn/api/paas/v4/models', p.apiKey);
       out.metrics = [{ label:'Coding Plan 额度', pct:null, text:'平台未开放查询接口' }];
       out.status = 'ok'; out.note = 'Key 有效；套餐剩余请在控制台查看';
@@ -679,6 +756,8 @@ function render(){
     const chips = `<div class="chiprow">
       <span class="chip ${st === 'ok' ? 'ok' : 'warn'}">${ST_TXT[st] || st}</span>
       ${p.cloudSynced ? `<span class="chip">云端同步 ${ago(p.syncedAt)}</span>` : ''}
+      ${p.restricted ? `<span class="chip warn">受限制</span>` : ''}
+      ${p.manual ? `<span class="chip">手动记录</span>` : ''}
       ${p.keySaved ? `<span class="chip">本机密钥 ${esc(p.keyFp || '')}</span>` : ''}
       ${p.syncedAt ? `<span class="chip">快照 ${fmtTime(p.syncedAt)}</span>` : ''}
     </div>`;
@@ -699,7 +778,7 @@ function render(){
       ${p.note ? `<div class="note">${esc(p.note)}</div>` : ''}
       <div class="footrow">
         ${(p.links || []).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noreferrer">${esc(l.label)} ›</a>`).join('')}
-        ${(!p.keySaved && KEY_URL[p.id]) ? `<a href="${KEY_URL[p.id]}" target="_blank" rel="noreferrer">创建 Key ›</a>` : ''}
+        ${(!p.keySaved && (p.keyUrl || KEY_URL[p.id])) ? `<a href="${esc(p.keyUrl || KEY_URL[p.id])}" target="_blank" rel="noreferrer">创建 Key ›</a>` : ''}
       </div>
     </div>`;
   }).join('') : '<div class="empty">还没有平台，点「接入」添加一个。</div>';
@@ -783,7 +862,9 @@ function renderSettings(){
       <div class="main">
         <div class="t2">${esc(p.name)}
           <span class="badge ${esc(p.type)}">${TYPE_TXT[p.type] || p.type}</span></div>
-        <div class="d2">${p.hidden ? '已取消关注 · 不在首页显示' : (p.keySaved ? '已保存密钥' : '未配置密钥')}</div>
+        <div class="d2">${p.hidden ? '已取消关注 · 不在首页显示'
+          : (p.adapter === 'manual' ? (p.manual && p.manual.pct != null ? '手动记录 ' + p.manual.pct + '%' : '手动记录 · 未填写')
+          : (p.keySaved ? '已保存密钥' : '未配置密钥'))}${p.restricted ? ' · 受限制' : ''}</div>
       </div>
       <div style="display:flex;align-items:center">
         <button class="switch ${p.hidden ? '' : 'on'}" onclick="toggleProvider('${esc(p.id)}')" aria-label="关注"><i></i></button>
@@ -818,7 +899,7 @@ function renderSettings(){
       <button class="set-link danger" onclick="wipeAll()">清空本机全部数据</button>
     </div>
 
-    <div class="ver">额度中枢 1.5.0 · 密钥仅存本机</div>
+    <div class="ver">额度中枢 1.6.0 · 密钥仅存本机</div>
     <div class="dock"><div class="inner">
       <button id="btnHome" class="accent">完成</button>
     </div></div>`;
@@ -886,10 +967,12 @@ function providerMenu(id){
   if (!p) return;
   const link = (p.links || [])[0];
   openSheet(`<h3>${esc(p.name)}</h3>
-    <div class="menu-item" onclick="closeSheet();editKey('${id}')">
-      配置 API Key<span>${p.keySaved ? '已保存 · 指纹 ' + esc(p.keyFp || '') : '未配置'}</span></div>
+    ${p.adapter !== 'manual' ? `<div class="menu-item" onclick="closeSheet();editKey('${id}')">
+      配置 API Key<span>${p.keySaved ? '已保存 · 指纹 ' + esc(p.keyFp || '') : '未配置'}</span></div>` : ''}
     ${link ? `<a class="menu-item" href="${esc(link.url)}" target="_blank" rel="noreferrer">
       打开${esc(link.label)}<span>浏览器</span></a>` : ''}
+    ${p.adapter === 'manual' ? `<div class="menu-item" onclick="closeSheet();manualSheet('${id}')">
+      更新剩余额度<span>手动记录</span></div>` : ''}
     <div class="menu-item" onclick="copyFp('${id}')">
       复制密钥指纹<span>${esc(p.keyFp || '—')}</span></div>
     ${p.apiKey ? `<div class="menu-item danger" onclick="closeSheet();dropKey('${id}')">
@@ -951,10 +1034,54 @@ async function dropKey(id){
 }
 
 /* ---------------- 接入新平台 ---------------- */
+function presetRow(pr){
+  const existed = S.providers.some(x => x.id === pr.key);
+  return `<div class="menu-item" onclick="${existed ? `toast('${pr.name} 已在关注列表')` : `addPreset('${pr.key}')`}">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <span style="width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;
+          color:#fff;font-size:13px;font-weight:600;background:${pr.color}">${pr.short}</span>
+        <span style="min-width:0">
+          <span style="display:block;font-size:14.5px;color:var(--txt)">${esc(pr.name)}</span>
+          <span style="display:block;font-size:11.5px;color:var(--dim);margin-top:1px">${esc(pr.note)}</span>
+        </span>
+      </div>
+      <span style="display:flex;align-items:center;gap:6px;flex:none">
+        ${pr.restricted ? '<span class="chip warn" style="font-size:10.5px">受限制</span>' : ''}
+        ${existed ? '<span style="color:var(--dim);font-size:12px">已添加</span>' : '<span style="color:var(--primary);font-size:12px">添加</span>'}
+      </span>
+    </div>`;
+}
+
 function addSheet(){
-  openSheet(`<h3>接入新平台</h3>
-    <p>先建卡片占位，额度类型决定它怎么展示。</p>
-    <div class="field"><label>平台名称</label><input id="nName" placeholder="如 通义 / 火山方舟"></div>
+  const rows = PRESETS.filter(x => x.key !== 'custom').map(presetRow).join('');
+  openSheet(`<h3>添加平台</h3>
+    <p>标注「受限制」的平台无法读取额度，只能手动记录；其余平台有接口的会自动查询。</p>
+    ${rows}
+    <div class="btnrow" style="margin-top:14px">
+      <button onclick="closeSheet();customSheet()">自定义平台</button>
+    </div>`);
+}
+
+async function addPreset(key){
+  const pr = PRESET_OF(key);
+  if (!pr) return toast('未知平台');
+  if (S.providers.some(x => x.id === pr.key)) return toast(pr.name + ' 已在关注列表');
+  S.providers.push({
+    id: pr.key, name: pr.name, type: pr.type, adapter: pr.adapter,
+    authKind: pr.adapter === 'manual' ? 'manual' : 'api_key', apiKey: '', keyFp: null,
+    note: pr.note, links: pr.links || [], keyUrl: pr.keyUrl || null, restricted: !!pr.restricted
+  });
+  await persist();
+  closeSheet();
+  toast('已添加 ' + pr.name);
+  await refresh();
+  if (view === 'settings') renderSettings();
+}
+
+function customSheet(){
+  openSheet(`<h3>自定义平台</h3>
+    <p>自建服务或其他平台：手动维护剩余额度。</p>
+    <div class="field"><label>平台名称</label><input id="nName" placeholder="如 火山方舟 / 自建网关"></div>
     <div class="field"><label>额度类型</label><select id="nType">
       <option value="token_plan">Token Plan · 周期配额</option>
       <option value="coding_plan">Coding Plan · 套餐额度</option>
@@ -964,13 +1091,43 @@ function addSheet(){
     <div class="btnrow"><button onclick="closeSheet()">取消</button>
       <button class="primary" onclick="createProvider()">创建</button></div>`);
 }
+
+function manualSheet(id){
+  const p = S.providers.find(x => x.id === id);
+  if (!p) return;
+  const m = p.manual || {};
+  openSheet(`<h3>${esc(p.name)} · 更新额度</h3>
+    <p>该平台无法通过接口读取，额度请按控制台/账单手动填写，只保存在本机。</p>
+    <div class="field"><label>剩余百分比 0–100</label>
+      <input id="mp" type="number" min="0" max="100" step="1" inputmode="numeric"
+        value="${m.pct != null ? m.pct : ''}" placeholder="如 72"></div>
+    <div class="field"><label>备注（可选）</label>
+      <input id="mt" value="${esc(m.text || '')}" placeholder="如 本月剩 ¥120 / 5 亿 tokens"></div>
+    <div class="btnrow"><button onclick="closeSheet()">取消</button>
+      <button class="primary" onclick="saveManual('${id}')">保存</button></div>`);
+}
+
+async function saveManual(id){
+  const p = S.providers.find(x => x.id === id);
+  if (!p) return;
+  const v = ($('#mp').value || '').trim();
+  const n = Number(v);
+  if (v === '' || isNaN(n) || n < 0 || n > 100) return toast('请填 0–100 的数字');
+  p.manual = { pct: Math.round(n), text: ($('#mt').value || '').trim(), updatedAt: Date.now() };
+  await persist();
+  closeSheet();
+  toast('已更新 ' + Math.round(n) + '%');
+  await refresh();
+  if (view === 'settings') renderSettings();
+}
+
 async function createProvider(){
   const name = $('#nName').value.trim();
   if (!name) return toast('请填平台名称');
   S.providers.push({
     id: 'c' + Date.now().toString(36), name,
-    type: $('#nType').value, authKind:'api_key', apiKey:'',
-    note: $('#nNote').value.trim() || '预留位，待接入适配器', links:[]
+    type: $('#nType').value, adapter: 'manual', authKind:'manual', apiKey:'',
+    note: $('#nNote').value.trim() || '自定义平台，手动维护额度', links:[]
   });
   await persist(); closeSheet(); toast('已添加'); await refresh();
   if (view === 'settings') renderSettings();
