@@ -278,19 +278,31 @@ async function jget(url, key, opts = {}){
 }
 
 function minimaxMetrics(model_remains){
-  return (model_remains || []).map(m => {
-    const total = Number(m.current_interval_total_count || 0);
-    const used = Number(m.current_interval_usage_count || 0);
-    const left = Number(m.current_interval_remaining_percent ?? 100);
-    return {
-      label: MODEL_TXT[m.model_name] || m.model_name,
-      percentLeft: left,
-      text: total > 0
-        ? `当期 ${used}/${total} 次 · 本周 ${m.current_weekly_usage_count}/${m.current_weekly_total_count} 次`
-        : `当期剩余 ${left}% · 本周剩余 ${m.current_weekly_remaining_percent}%`,
+  const rows = [];
+  (model_remains || []).forEach(m => {
+    const name = MODEL_TXT[m.model_name] || m.model_name;
+    const wTotal = Number(m.current_interval_total_count || 0);
+    const wUsed = Number(m.current_interval_usage_count || 0);
+    const boost = Number(m.weekly_boost_permille || 1000);
+    const boostTxt = boost > 1000 ? `（周额度 ×${(boost / 1000).toFixed(1)}）` : '';
+
+    rows.push({
+      label: `${name} · 5 小时窗`,
+      percentLeft: Number(m.current_interval_remaining_percent ?? 100),
+      text: wTotal > 0 ? `已用 ${wUsed}/${wTotal} 次` : '不限次数，按 token 计',
       resetAt: m.end_time
-    };
+    });
+
+    const mTotal = Number(m.current_weekly_total_count || 0);
+    const mUsed = Number(m.current_weekly_usage_count || 0);
+    rows.push({
+      label: `${name} · 本周${boostTxt}`,
+      percentLeft: Number(m.current_weekly_remaining_percent ?? 100),
+      text: mTotal > 0 ? `已用 ${mUsed}/${mTotal} 次` : '不限次数，按 token 计',
+      resetAt: m.weekly_end_time
+    });
   });
+  return rows;
 }
 
 /** 读取云端 Actions 同步下来的 OAuth 额度快照（同源，无需任何 Key） */
@@ -312,6 +324,13 @@ async function statusOf(p){
       const snap = await cloudSnapshot();
       if (snap) {
         out.metrics = minimaxMetrics(snap.model_remains);
+        if (snap.balance) {
+          out.balance = { amount: Number(snap.balance.available_amount || 0), currency: 'CNY' };
+          out.metrics.push({
+            label: '积分 / 代金券', percentLeft: null,
+            text: `积分 ${Number(snap.balance.credit_balance || 0).toFixed(2)} · 代金券 ¥${Number(snap.balance.voucher_balance || 0).toFixed(2)} · 现金 ¥${Number(snap.balance.cash_balance || 0).toFixed(2)}`
+          });
+        }
         out.status = 'ok';
         out.mode = 'oauth';
         out.cloudSynced = true;
@@ -330,6 +349,16 @@ async function statusOf(p){
       const base = p.base || 'https://api.minimaxi.com';
       const d = await jget(base + '/v1/token_plan/remains', p.apiKey);
       out.metrics = minimaxMetrics(d.model_remains);
+      try {
+        const bl = await jget(base + '/account/query_balance', p.apiKey);
+        if (bl && Number(bl.available_amount || 0) >= 0) {
+          out.balance = { amount: Number(bl.available_amount || 0), currency: 'CNY' };
+          out.metrics.push({
+            label: '积分 / 代金券', percentLeft: null,
+            text: `积分 ${Number(bl.credit_balance || 0).toFixed(2)} · 代金券 ¥${Number(bl.voucher_balance || 0).toFixed(2)} · 现金 ¥${Number(bl.cash_balance || 0).toFixed(2)}`
+          });
+        }
+      } catch (e) {}
       out.status = 'ok'; out.note = 'Token Plan 实时额度';
     }
     else if (p.id === 'kimi' || p.id === 'moonshot'){
