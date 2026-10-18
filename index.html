@@ -183,6 +183,29 @@
   .menu-item span{color:var(--dim);font-size:12.5px}
   .menu-item.danger{color:var(--red)}
 
+  /* ---------- 设置页 ---------- */
+  .set-sec{background:#fff;border:1px solid var(--line);border-radius:8px;
+    box-shadow:var(--shadow);padding:4px 14px;margin-bottom:10px}
+  .set-sec > .t{font-size:12px;color:var(--dim);padding:12px 0 2px}
+  .set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 0;border-bottom:1px solid var(--line)}
+  .set-sec > .set-row:last-child{border-bottom:0}
+  .set-row .main{min-width:0}
+  .set-row .t2{font-size:14px;color:var(--txt);display:flex;align-items:center;gap:6px}
+  .set-row .d2{font-size:11.5px;color:var(--dim);margin-top:2px}
+  .switch{width:40px;height:22px;border-radius:11px;background:#C9CDD4;border:0;padding:0;
+    position:relative;flex:none;transition:background .18s}
+  .switch i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(29,33,41,.18);transition:left .18s}
+  .switch.on{background:var(--primary)}
+  .switch.on i{left:20px}
+  .set-link{background:none;border:0;font:inherit;font-size:13.5px;color:var(--primary);
+    padding:12px 0;display:block;width:100%;text-align:left}
+  .set-link.danger{color:var(--red)}
+  .set-row .del{background:none;border:0;font:inherit;font-size:12.5px;color:var(--red);
+    padding:4px 0 4px 10px}
+  .ver{text-align:center;color:#C9CDD4;font-size:11px;margin:18px 0 4px}
+
   /* ---------- 弹层 ---------- */
   .sheet-bg{position:fixed;inset:0;z-index:40;display:none;align-items:flex-end;justify-content:center;
     background:rgba(29,33,41,.45)}
@@ -254,7 +277,7 @@ const PIN_MAX_TRY = 5;
 const PIN_COOLDOWN_MS = 30 * 1000;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 
-let S = { providers: [], unlocked: false, key: null, salt: null, idleAt: Date.now(), timer: null };
+let S = { providers: [], hiddenModels: [], unlocked: false, key: null, salt: null, idleAt: Date.now(), timer: null };
 const $ = s => document.querySelector(s);
 const toastEl = $('#toast');
 
@@ -327,7 +350,7 @@ async function fingerprint(secret){
   return [...new Uint8Array(h)].slice(0,5).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 async function persist(){
-  const box = await encryptVault({ providers: S.providers }, S.key);
+  const box = await encryptVault({ providers: S.providers, hiddenModels: S.hiddenModels || [] }, S.key);
   localStorage.setItem(LS_VAULT, JSON.stringify({ salt: b64(S.salt), iv: box.iv, ct: box.ct }));
   localStorage.setItem(LS_META, JSON.stringify({
     providers: S.providers.map(p => ({ id:p.id, name:p.name, type:p.type, keyFp:p.keyFp || null }))
@@ -374,7 +397,9 @@ function renderGate(mode){
       try {
         S.salt = unb64(box.salt);
         S.key = await deriveKey(pin, S.salt);
-        S.providers = (await decryptVault(box, S.key)).providers;
+        const data = await decryptVault(box, S.key);
+        S.providers = data.providers || [];
+        S.hiddenModels = data.hiddenModels || [];
         localStorage.removeItem(LS_GUARD);
         S.unlocked = true;
         render();
@@ -400,7 +425,7 @@ function renderGate(mode){
 }
 
 function lock(){
-  S.unlocked = false; S.key = null; S.providers = []; ST = []; viewTab = 'all';
+  S.unlocked = false; S.key = null; S.providers = []; ST = []; viewTab = 'all'; view = 'home';
   if (!localStorage.getItem(LS_VAULT)) return location.reload();
   renderGate('unlock');
 }
@@ -475,7 +500,7 @@ async function cloudSnapshot(){
 
 async function statusOf(p){
   const out = { id:p.id, name:p.name, type:p.type, authKind:p.authKind, links:p.links||[],
-                note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, metrics:[] };
+                note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, hidden: !!p.hidden, metrics:[] };
   if (!p.apiKey) {
     if (p.id === 'minimax') {
       const snap = await cloudSnapshot();
@@ -572,6 +597,11 @@ function donutSvg(pct){
   </div>`;
 }
 
+function visGroupsOf(p){
+  const hidden = S.hiddenModels || [];
+  return (p.groups || []).filter(g => !hidden.includes(p.id + ':' + g.raw));
+}
+
 function groupsHtml(groups){
   return groups.map(g => {
     const i = g.interval, w = g.weekly;
@@ -603,23 +633,26 @@ function metricsHtml(metrics){
 }
 
 let viewTab = 'all';
+let view = 'home';
 
 function render(){
   if (!S.unlocked) return;
 
-  const tabList = ST.filter(p => viewTab === 'all' ? true
+  const hiddenIds = new Set(S.providers.filter(p => p.hidden).map(p => p.id));
+  const shown = ST.filter(p => !hiddenIds.has(p.id));
+  const tabList = shown.filter(p => viewTab === 'all' ? true
     : viewTab === 'plan' ? (p.type === 'token_plan' || p.type === 'coding_plan')
     : (p.type === 'balance' || p.type === 'usage'));
   const counts = {
-    all: ST.length,
-    plan: ST.filter(p => p.type === 'token_plan' || p.type === 'coding_plan').length,
-    balance: ST.filter(p => p.type === 'balance' || p.type === 'usage').length
+    all: shown.length,
+    plan: shown.filter(p => p.type === 'token_plan' || p.type === 'coding_plan').length,
+    balance: shown.filter(p => p.type === 'balance' || p.type === 'usage').length
   };
 
   const cards = tabList.length ? tabList.map(p => {
     const type = p.type || 'usage';
     const st = p.status || 'error';
-    const groups = p.groups || [];
+    const groups = visGroupsOf(p);
     const pcts = [];
     groups.forEach(g => { pcts.push(g.interval.pct, g.weekly.pct); });
     (p.metrics || []).forEach(m => { if (m.pct != null) pcts.push(m.pct); });
@@ -679,6 +712,11 @@ function render(){
         <div><h1>额度中枢</h1>
           <div class="meta-line">${synced ? '数据 ' + ago(synced) : '未同步'}</div></div>
       </div>
+      <button class="lockbtn" id="btnSet" aria-label="设置" style="margin-right:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
       <button class="lockbtn" id="btnLock" aria-label="锁定">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/>
@@ -703,6 +741,7 @@ function render(){
   document.querySelectorAll('.tabs .tab').forEach(b => {
     b.onclick = () => { viewTab = b.dataset.tab; render(); };
   });
+  $('#btnSet').onclick = () => { view = 'settings'; renderSettings(); };
   $('#btnLock').onclick = lock;
   $('#btnLock2').onclick = lock;
   $('#btnAdd').onclick = addSheet;
@@ -715,6 +754,130 @@ async function refresh(manual){
   ST = await Promise.all(S.providers.map(statusOf));
   render();
   if (manual) toast('已刷新');
+}
+
+/* ---------------- 设置页 ---------------- */
+function modelListOf(p){
+  const fromData = (ST.find(x => x.id === p.id) || {}).groups || [];
+  const raws = fromData.map(g => g.raw);
+  return raws.length ? raws : (p.id === 'minimax' ? ['general', 'video'] : []);
+}
+function modelNameOf(raw){
+  return MODEL_TXT[raw] || raw;
+}
+
+function renderSettings(){
+  if (!S.unlocked) return;
+  const provs = S.providers;
+  const modelRows = provs.flatMap(p => modelListOf(p).map(raw => {
+    const key = p.id + ':' + raw;
+    const on = !(S.hiddenModels || []).includes(key);
+    return `<div class="set-row">
+      <div class="main"><div class="t2">${esc(modelNameOf(raw))}</div>
+        <div class="d2">${esc(p.name)}</div></div>
+      <button class="switch ${on ? 'on' : ''}" onclick="toggleModel('${esc(key)}')" aria-label="关注"><i></i></button>
+    </div>`;
+  })).join('');
+
+  const provRows = provs.map(p => `<div class="set-row">
+      <div class="main">
+        <div class="t2">${esc(p.name)}
+          <span class="badge ${esc(p.type)}">${TYPE_TXT[p.type] || p.type}</span></div>
+        <div class="d2">${p.hidden ? '已取消关注 · 不在首页显示' : (p.keySaved ? '已保存密钥' : '未配置密钥')}</div>
+      </div>
+      <div style="display:flex;align-items:center">
+        <button class="switch ${p.hidden ? '' : 'on'}" onclick="toggleProvider('${esc(p.id)}')" aria-label="关注"><i></i></button>
+        <button class="del" onclick="removeProvider('${esc(p.id)}')">删除</button>
+      </div>
+    </div>`).join('') || '<div class="set-row"><div class="d2">还没有平台</div></div>';
+
+  $('#app').innerHTML = `
+    <div class="topbar">
+      <button class="lockbtn" id="btnBack" aria-label="返回" style="margin-right:2px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="brand"><div><h1 style="letter-spacing:.06em">设置</h1>
+        <div class="meta-line">关注的内容与安全</div></div></div>
+    </div>
+
+    <div class="set-sec">
+      <div class="t">关注的内容 · 模型</div>
+      ${modelRows || '<div class="set-row"><div class="d2">暂无模型数据，先回首页刷新一次</div></div>'}
+    </div>
+
+    <div class="set-sec">
+      <div class="t">关注的内容 · 平台</div>
+      ${provRows}
+      <button class="set-link" onclick="addSheet()">+ 添加平台</button>
+    </div>
+
+    <div class="set-sec">
+      <div class="t">安全</div>
+      <button class="set-link" onclick="changePinSheet()">修改访问 PIN</button>
+      <button class="set-link danger" onclick="wipeAll()">清空本机全部数据</button>
+    </div>
+
+    <div class="ver">额度中枢 1.5.0 · 密钥仅存本机</div>
+    <div class="dock"><div class="inner">
+      <button id="btnHome" class="accent">完成</button>
+    </div></div>`;
+
+  $('#btnBack').onclick = goHome;
+  $('#btnHome').onclick = goHome;
+}
+
+function goHome(){ view = 'home'; render(); }
+
+function toggleModel(key){
+  const i = (S.hiddenModels || []).indexOf(key);
+  if (i >= 0) S.hiddenModels.splice(i, 1); else S.hiddenModels.push(key);
+  persist().then(() => { renderSettings(); render(); });
+}
+
+function toggleProvider(id){
+  const p = S.providers.find(x => x.id === id);
+  if (!p) return;
+  p.hidden = !p.hidden;
+  persist().then(() => { renderSettings(); render(); });
+}
+
+function removeProvider(id){
+  const p = S.providers.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm('删除「' + p.name + '」后，本机保存的该平台密钥一并删除，不可恢复。继续？')) return;
+  S.providers = S.providers.filter(x => x.id !== id);
+  S.hiddenModels = (S.hiddenModels || []).filter(k => !k.startsWith(id + ':'));
+  ST = ST.filter(x => x.id !== id);
+  persist().then(() => { renderSettings(); render(); toast('已删除 ' + p.name); });
+}
+
+function changePinSheet(){
+  openSheet(`<h3>修改访问 PIN</h3>
+    <p>新 PIN 会重新派生密钥并重新加密本机保存的全部密钥，旧 PIN 立即失效。</p>
+    <div class="field"><label>新 PIN（4–8 位数字）</label>
+      <input id="np" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>
+    <div class="field"><label>再输一次</label>
+      <input id="np2" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>
+    <div class="btnrow"><button onclick="closeSheet()">取消</button>
+      <button class="primary" onclick="changePin()">保存</button></div>`);
+}
+
+async function changePin(){
+  const a = ($('#np').value || '').trim(), b = ($('#np2').value || '').trim();
+  if (!/^\d{4,8}$/.test(a)) return toast('PIN 需 4–8 位数字');
+  if (a !== b) return toast('两次输入不一致');
+  S.salt = crypto.getRandomValues(new Uint8Array(16));
+  S.key = await deriveKey(a, S.salt);
+  localStorage.removeItem(LS_GUARD);
+  await persist();
+  closeSheet(); toast('PIN 已更新');
+}
+
+function wipeAll(){
+  if (!confirm('将删除本机保存的所有密钥与配置，且无法恢复。继续？')) return;
+  [LS_VAULT, LS_META, LS_GUARD].forEach(k => localStorage.removeItem(k));
+  location.reload();
 }
 
 /* ---------------- 卡片更多菜单 ---------------- */
@@ -810,6 +973,7 @@ async function createProvider(){
     note: $('#nNote').value.trim() || '预留位，待接入适配器', links:[]
   });
   await persist(); closeSheet(); toast('已添加'); await refresh();
+  if (view === 'settings') renderSettings();
 }
 
 /* ---------------- 弹层 ---------------- */
