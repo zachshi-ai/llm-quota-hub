@@ -277,25 +277,59 @@ async function jget(url, key, opts = {}){
   return body;
 }
 
+function minimaxMetrics(model_remains){
+  return (model_remains || []).map(m => {
+    const total = Number(m.current_interval_total_count || 0);
+    const used = Number(m.current_interval_usage_count || 0);
+    const left = Number(m.current_interval_remaining_percent ?? 100);
+    return {
+      label: MODEL_TXT[m.model_name] || m.model_name,
+      percentLeft: left,
+      text: total > 0
+        ? `当期 ${used}/${total} 次 · 本周 ${m.current_weekly_usage_count}/${m.current_weekly_total_count} 次`
+        : `当期剩余 ${left}% · 本周剩余 ${m.current_weekly_remaining_percent}%`,
+      resetAt: m.end_time
+    };
+  });
+}
+
+/** 读取云端 Actions 同步下来的 OAuth 额度快照（同源，无需任何 Key） */
+async function cloudSnapshot(){
+  try {
+    const r = await fetch('data/minimax.json', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.model_remains) return null;
+    return d;
+  } catch { return null; }
+}
+
 async function statusOf(p){
   const out = { id:p.id, name:p.name, type:p.type, authKind:p.authKind, links:p.links||[],
                 note:p.note||'', keyFp:p.keyFp||null, keySaved: !!p.apiKey, metrics:[] };
-  if (!p.apiKey) return { ...out, status:'unauthenticated',
-    note:'手机上还没有凭证。点「配置 Key」填入平台 API Key，保存后即可看到整体用量与进度。' };
+  if (!p.apiKey) {
+    if (p.id === 'minimax') {
+      const snap = await cloudSnapshot();
+      if (snap) {
+        out.metrics = minimaxMetrics(snap.model_remains);
+        out.status = 'ok';
+        out.mode = 'oauth';
+        out.cloudSynced = true;
+        out.syncedAt = snap.updated_at;
+        out.note = '云端 OAuth 授权同步（不需要你填 Key）';
+        out.updatedAt = Date.now();
+        return out;
+      }
+    }
+    return { ...out, status:'unauthenticated',
+      note:'手机上还没有凭证。可点「配置 Key」填 API Key，或让 Amoo 发起云端 OAuth 授权。' };
+  }
 
   try {
     if (p.id === 'minimax'){
       const base = p.base || 'https://api.minimaxi.com';
       const d = await jget(base + '/v1/token_plan/remains', p.apiKey);
-      out.metrics = (d.model_remains || []).map(m => {
-        const total = Number(m.current_interval_total_count || 0);
-        const used = Number(m.current_interval_usage_count || 0);
-        const left = Number(m.current_interval_remaining_percent ?? 100);
-        return { label: MODEL_TXT[m.model_name] || m.model_name, percentLeft:left,
-          text: total > 0 ? `当期 ${used}/${total} 次 · 本周 ${m.current_weekly_usage_count}/${m.current_weekly_total_count} 次`
-                          : `当期剩余 ${left}% · 本周剩余 ${m.current_weekly_remaining_percent}%`,
-          resetAt: m.end_time };
-      });
+      out.metrics = minimaxMetrics(d.model_remains);
       out.status = 'ok'; out.note = 'Token Plan 实时额度';
     }
     else if (p.id === 'kimi' || p.id === 'moonshot'){
@@ -368,10 +402,15 @@ function render(){
       ${bal}${overall}${metrics}
       <div class="note">${esc(p.note || ST_TXT[st] || '')}</div>
       <div class="meta"><span>${ST_TXT[st]||st}</span>
+        ${p.cloudSynced?`<span>· 云端同步 ${fmtTime(p.syncedAt)}</span>`:''}
         ${p.updatedAt?`<span>· ${fmtTime(p.updatedAt)} 更新</span>`:''}</div>
-      ${p.authKind === 'api_key' ? `<div class="keyline">
+      ${p.cloudSynced ? `<div class="keyline">
+        <span class="lock">云端 OAuth 已授权</span>
+        <code>无需 Key</code>
+        <span style="color:var(--dim)">也可改用 API Key</span></div>`
+      : (p.authKind === 'api_key' ? `<div class="keyline">
         <span class="lock">${p.keySaved?'已加密保存':'未配置 Key'}</span>
-        ${p.keyFp?`<code>指纹 ${esc(p.keyFp)}</code>`:''}</div>` : ''}
+        ${p.keyFp?`<code>指纹 ${esc(p.keyFp)}</code>`:''}</div>` : '')}
       <div class="foot">
         ${(p.links||[]).map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noreferrer">${esc(l.label)}</a>`).join('')}
         ${(!p.keySaved && KEY_URL[p.id]) ? `<a href="${KEY_URL[p.id]}" target="_blank" rel="noreferrer" style="color:#8fb6ff;border-color:#2a4570">去创建 Key</a>` : ''}
