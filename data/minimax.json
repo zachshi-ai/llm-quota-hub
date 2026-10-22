@@ -2,9 +2,45 @@
   "provider": "minimax",
   "mode": "oauth",
   "region": "cn",
-  "updated_at": "2026-10-22T07:30:05.486Z",
+  "updated_at": "2026-10-22T07:40:02.183Z",
   "token_expires_at": "2026-10-23T17:00:43.036Z",
-  "model_remains": [],
+  "model_remains": [
+    {
+      "start_time": 1792652400000,
+      "end_time": 1792670400000,
+      "remains_time": 15595463,
+      "current_interval_total_count": 0,
+      "current_interval_usage_count": 0,
+      "model_name": "general",
+      "current_weekly_total_count": 0,
+      "current_weekly_usage_count": 0,
+      "weekly_start_time": 1792339200000,
+      "weekly_end_time": 1792944000000,
+      "weekly_remains_time": 289195463,
+      "current_interval_status": 1,
+      "current_interval_remaining_percent": 100,
+      "current_weekly_status": 1,
+      "current_weekly_remaining_percent": 97,
+      "weekly_boost_permille": 1500
+    },
+    {
+      "start_time": 1792598400000,
+      "end_time": 1792684800000,
+      "remains_time": 29995463,
+      "current_interval_total_count": 3,
+      "current_interval_usage_count": 0,
+      "model_name": "video",
+      "current_weekly_total_count": 21,
+      "current_weekly_usage_count": 0,
+      "weekly_start_time": 1792339200000,
+      "weekly_end_time": 1792944000000,
+      "weekly_remains_time": 289195463,
+      "current_interval_status": 1,
+      "current_interval_remaining_percent": 100,
+      "current_weekly_status": 1,
+      "current_weekly_remaining_percent": 100
+    }
+  ],
   "balance": {
     "available_amount": 38.4,
     "cash_balance": 38.4,
@@ -13,7 +49,7 @@
     "currency": "CNY"
   },
   "base_resp": {
-    "status_code": 1033,
-    "status_msg": "system error, QueryCodePlanRemains failed"
+    "status_code": 0,
+    "status_msg": "success"
   }
 }
