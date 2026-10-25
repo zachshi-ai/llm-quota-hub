@@ -27,12 +27,11 @@ const RT = (process.env.RT || '').trim();
 const ACCOUNT = REGION === 'global' ? 'https://account.minimax.io' : 'https://account.minimaxi.com';
 const API = REGION === 'global' ? 'https://api.minimax.io' : 'https://api.minimaxi.com';
 
-if (!RT) {
-  console.error('缺少 MINIMAX_REFRESH_TOKEN');
-  process.exit(1);
-}
-
 async function refreshToken() {
+  if (!RT) {
+    console.error('缺少 refresh token（配置里也没有可用的 access token）');
+    process.exit(1);
+  }
   const res = await fetch(`${ACCOUNT}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -53,6 +52,19 @@ async function refreshToken() {
     process.exit(2);
   }
   return d;
+}
+
+async function fetchBalance(accessToken) {
+  try {
+    const res = await fetch(`${API}/account/query_balance`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d && d.base_resp && d.base_resp.status_code === 0 ? d : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchQuota(accessToken) {
@@ -87,6 +99,7 @@ if (token && token.refresh_token && token.refresh_token !== RT) {
 }
 
 const quota = await fetchQuota(accessToken);
+const balance = await fetchBalance(accessToken);
 
 mkdirSync('data', { recursive: true });
 writeFileSync(
@@ -101,6 +114,15 @@ writeFileSync(
         try { return JSON.parse(readFileSync(MMX_CFG, 'utf8')).oauth.expires_at || null; } catch { return null; }
       })(),
       model_remains: quota.model_remains || [],
+      balance: balance
+        ? {
+            available_amount: Number(balance.available_amount || 0),
+            cash_balance: Number(balance.cash_balance || 0),
+            voucher_balance: Number(balance.voucher_balance || 0),
+            credit_balance: Number(balance.credit_balance || 0),
+            currency: 'CNY'
+          }
+        : null,
       base_resp: quota.base_resp || null
     },
     null,
